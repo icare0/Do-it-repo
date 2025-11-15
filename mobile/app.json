@@ -60,9 +60,6 @@
       "expo-location",
       "expo-notifications",
       "expo-calendar",
-      "@react-native-firebase/app",
-      "@react-native-firebase/auth",
-      "@react-native-firebase/messaging",
       [
         "expo-build-properties",
         {

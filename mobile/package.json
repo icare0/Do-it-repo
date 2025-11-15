@@ -52,10 +52,13 @@
   },
   "devDependencies": {
     "@babel/core": "^7.23.7",
+    "@babel/plugin-proposal-decorators": "^7.23.7",
+    "@babel/plugin-proposal-export-namespace-from": "^7.18.9",
     "@types/jest": "^29.5.11",
     "@types/react": "~18.2.45",
     "@typescript-eslint/eslint-plugin": "^6.18.1",
     "@typescript-eslint/parser": "^6.18.1",
+    "babel-plugin-module-resolver": "^5.0.0",
     "detox": "^20.14.8",
     "eslint": "^8.56.0",
     "eslint-config-expo": "^7.0.0",
