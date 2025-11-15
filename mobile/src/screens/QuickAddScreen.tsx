@@ -22,8 +22,6 @@ import { useTaskStore } from '@/store/taskStore';
 import { useAuthStore } from '@/store/authStore';
 import { getTheme } from '@/theme';
 import { nlpService } from '@/services/nlpService';
-import { database, TaskModel } from '@/database';
-import { syncService } from '@/services/syncService';
 
 export default function QuickAddScreen() {
   const navigation = useNavigation();
@@ -58,48 +56,25 @@ export default function QuickAddScreen() {
 
       const taskData = parsedTask || { title: input };
 
-      // Create task in local database
-      await database.write(async () => {
-        const newTask = await database.get<TaskModel>('tasks').create((task) => {
-          task.userId = user.id;
-          task.title = taskData.title;
-          task.priority = taskData.priority || 'medium';
-          task.completed = false;
-          task.category = taskData.category;
+      // Create task in store (simplified version without database)
+      const newTask = {
+        id: `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        userId: user.id,
+        title: taskData.title,
+        completed: false,
+        priority: taskData.priority || 'medium',
+        category: taskData.category,
+        startDate: taskData.date,
+        duration: taskData.duration,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
 
-          if (taskData.date) {
-            task.startDate = taskData.date;
-          }
+      // Add to store
+      addTask(newTask);
 
-          if (taskData.duration) {
-            task.duration = taskData.duration;
-          }
-        });
-
-        // Add to store
-        addTask({
-          id: newTask.id,
-          userId: user.id,
-          title: taskData.title,
-          completed: false,
-          priority: taskData.priority || 'medium',
-          category: taskData.category,
-          startDate: taskData.date,
-          duration: taskData.duration,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        });
-
-        // Add to sync queue
-        await syncService.addToSyncQueue('task', newTask.id, 'create', {
-          userId: user.id,
-          title: taskData.title,
-          priority: taskData.priority || 'medium',
-          category: taskData.category,
-          startDate: taskData.date,
-          duration: taskData.duration,
-        });
-      });
+      // TODO: Add API call to save to backend when ready
+      // await apiService.createTask(newTask);
 
       navigation.goBack();
     } catch (error) {
