@@ -1,9 +1,10 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
+import messaging from '@react-native-firebase/messaging';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const EXPO_PUSH_TOKEN_KEY = 'expo_push_token';
+const FCM_TOKEN_KEY = 'fcm_token';
 
 // Configure notification handler
 Notifications.setNotificationHandler({
@@ -15,9 +16,6 @@ Notifications.setNotificationHandler({
 });
 
 class NotificationService {
-  private notificationListener?: Notifications.Subscription;
-  private responseListener?: Notifications.Subscription;
-
   async initialize() {
     try {
       const hasPermission = await this.requestPermissions();
@@ -26,8 +24,8 @@ class NotificationService {
         return null;
       }
 
-      // Get Expo Push token
-      const token = await this.getExpoPushToken();
+      // Get FCM token
+      const token = await this.getFCMToken();
 
       // Setup notification listeners
       this.setupListeners();
@@ -63,7 +61,7 @@ class NotificationService {
           name: 'default',
           importance: Notifications.AndroidImportance.MAX,
           vibrationPattern: [0, 250, 250, 250],
-          lightColor: '#FF231F7C',
+          lightColor: '#3B82F6',
         });
       }
 
@@ -74,137 +72,139 @@ class NotificationService {
     }
   }
 
-  async getExpoPushToken(): Promise<string | null> {
+  async getFCMToken(): Promise<string | null> {
     try {
-      // Check if we already have a token
-      const cachedToken = await AsyncStorage.getItem(EXPO_PUSH_TOKEN_KEY);
-      if (cachedToken) {
-        return cachedToken;
+      // Check if we have a cached token
+      const cachedToken = await AsyncStorage.getItem(FCM_TOKEN_KEY);
+      if (cachedToken) return cachedToken;
+
+      // Request authorization (iOS)
+      if (Platform.OS === 'ios') {
+        const authStatus = await messaging().requestPermission();
+        const enabled =
+          authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+          authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+
+        if (!enabled) return null;
       }
 
-      // Get new token
-      const { data: token } = await Notifications.getExpoPushTokenAsync({
-        projectId: '8dffdf0a-29c3-483c-b083-02cc73b7777e',
-      });
-
-      // Cache the token
-      await AsyncStorage.setItem(EXPO_PUSH_TOKEN_KEY, token);
+      // Get FCM token
+      const token = await messaging().getToken();
+      await AsyncStorage.setItem(FCM_TOKEN_KEY, token);
 
       return token;
     } catch (error) {
-      console.error('Error getting push token:', error);
+      console.error('Get FCM token error:', error);
       return null;
     }
   }
 
   private setupListeners() {
-    // Handle notification received while app is in foreground
-    this.notificationListener = Notifications.addNotificationReceivedListener(notification => {
+    // Foreground notification handler
+    Notifications.addNotificationReceivedListener((notification) => {
       console.log('Notification received:', notification);
     });
 
-    // Handle notification response (when user taps on notification)
-    this.responseListener = Notifications.addNotificationResponseReceivedListener(response => {
+    // Notification response handler (when user taps notification)
+    Notifications.addNotificationResponseReceivedListener((response) => {
       console.log('Notification response:', response);
-      this.handleNotificationResponse(response);
+      // Handle navigation based on notification data
+    });
+
+    // FCM foreground message handler
+    messaging().onMessage(async (remoteMessage) => {
+      console.log('FCM message received:', remoteMessage);
+
+      // Show local notification
+      if (remoteMessage.notification) {
+        await this.scheduleLocalNotification({
+          title: remoteMessage.notification.title || '',
+          body: remoteMessage.notification.body || '',
+          data: remoteMessage.data,
+        });
+      }
+    });
+
+    // Token refresh handler
+    messaging().onTokenRefresh(async (token) => {
+      await AsyncStorage.setItem(FCM_TOKEN_KEY, token);
+      // Send updated token to backend
     });
   }
 
-  private handleNotificationResponse(response: Notifications.NotificationResponse) {
-    const data = response.notification.request.content.data;
-
-    // Handle different notification types
-    if (data.type === 'task_reminder') {
-      // Navigate to task detail
-      console.log('Navigate to task:', data.taskId);
-    } else if (data.type === 'geofence_trigger') {
-      // Navigate to location-based task
-      console.log('Navigate to location task:', data.taskId);
-    }
-  }
-
-  async scheduleTaskReminder(taskId: string, title: string, body: string, trigger: Date) {
+  async scheduleLocalNotification(options: {
+    title: string;
+    body: string;
+    data?: any;
+    trigger?: Date | { seconds: number };
+  }) {
     try {
-      const identifier = await Notifications.scheduleNotificationAsync({
+      let trigger = null;
+      if (options.trigger) {
+        if (options.trigger instanceof Date) {
+          trigger = options.trigger;
+        } else {
+          trigger = { seconds: options.trigger.seconds };
+        }
+      }
+
+      await Notifications.scheduleNotificationAsync({
         content: {
-          title,
-          body,
-          data: { type: 'task_reminder', taskId },
+          title: options.title,
+          body: options.body,
+          data: options.data || {},
           sound: true,
         },
         trigger,
       });
-
-      return identifier;
     } catch (error) {
-      console.error('Error scheduling notification:', error);
-      throw error;
+      console.error('Schedule notification error:', error);
     }
   }
 
-  async scheduleLocationReminder(taskId: string, title: string, body: string) {
-    try {
-      // For now, just show an immediate notification
-      // TODO: Implement proper geofencing with expo-location
-      const identifier = await Notifications.scheduleNotificationAsync({
-        content: {
-          title,
-          body,
-          data: { type: 'geofence_trigger', taskId },
-          sound: true,
-        },
-        trigger: null, // Show immediately
-      });
+  async scheduleTaskReminder(task: {
+    id: string;
+    title: string;
+    date: Date;
+    minutesBefore?: number;
+  }) {
+    const reminderTime = new Date(task.date);
+    reminderTime.setMinutes(reminderTime.getMinutes() - (task.minutesBefore || 15));
 
-      return identifier;
-    } catch (error) {
-      console.error('Error scheduling location notification:', error);
-      throw error;
-    }
+    await this.scheduleLocalNotification({
+      title: 'Rappel de tâche',
+      body: task.title,
+      data: { taskId: task.id, type: 'task_reminder' },
+      trigger: reminderTime,
+    });
+  }
+
+  async scheduleLocationReminder(task: {
+    id: string;
+    title: string;
+    locationName: string;
+  }) {
+    await this.scheduleLocalNotification({
+      title: `Tâche à proximité`,
+      body: `${task.title} - ${task.locationName}`,
+      data: { taskId: task.id, type: 'location_reminder' },
+    });
   }
 
   async cancelNotification(identifier: string) {
-    try {
-      await Notifications.cancelScheduledNotificationAsync(identifier);
-    } catch (error) {
-      console.error('Error canceling notification:', error);
-      throw error;
-    }
+    await Notifications.cancelScheduledNotificationAsync(identifier);
   }
 
   async cancelAllNotifications() {
-    try {
-      await Notifications.cancelAllScheduledNotificationsAsync();
-    } catch (error) {
-      console.error('Error canceling all notifications:', error);
-      throw error;
-    }
+    await Notifications.cancelAllScheduledNotificationsAsync();
   }
 
   async getBadgeCount(): Promise<number> {
-    try {
-      return await Notifications.getBadgeCountAsync();
-    } catch (error) {
-      console.error('Error getting badge count:', error);
-      return 0;
-    }
+    return await Notifications.getBadgeCountAsync();
   }
 
   async setBadgeCount(count: number) {
-    try {
-      await Notifications.setBadgeCountAsync(count);
-    } catch (error) {
-      console.error('Error setting badge count:', error);
-    }
-  }
-
-  cleanup() {
-    if (this.notificationListener) {
-      Notifications.removeNotificationSubscription(this.notificationListener);
-    }
-    if (this.responseListener) {
-      Notifications.removeNotificationSubscription(this.responseListener);
-    }
+    await Notifications.setBadgeCountAsync(count);
   }
 }
 

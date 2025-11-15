@@ -10,6 +10,8 @@ import { Badge } from '@/components/ui/Badge';
 import { useThemeStore } from '@/store/themeStore';
 import { useTaskStore } from '@/store/taskStore';
 import { getTheme } from '@/theme';
+import { database, TaskModel } from '@/database';
+import { syncService } from '@/services/syncService';
 
 export default function TaskDetailScreen() {
   const navigation = useNavigation();
@@ -32,12 +34,12 @@ export default function TaskDetailScreen() {
         text: 'Supprimer',
         style: 'destructive',
         onPress: async () => {
-          // Delete from store (simplified version without database)
+          await database.write(async () => {
+            const dbTask = await database.get<TaskModel>('tasks').find(task.id);
+            await dbTask.markAsDeleted();
+          });
+          await syncService.addToSyncQueue('task', task.id, 'delete', {});
           deleteTask(task.id);
-
-          // TODO: Add API call to delete from backend when ready
-          // await apiService.deleteTask(task.id);
-
           navigation.goBack();
         },
       },
