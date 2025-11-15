@@ -82,7 +82,7 @@ class LocationService {
         timeInterval: 60000, // 1 minute
         distanceInterval: 100, // 100 meters
         foregroundService: {
-          notificationTitle: 'TaskFlow',
+          notificationTitle: 'Do'It',
           notificationBody: 'Tracking your location for task reminders',
         },
       });

@@ -1,5 +1,5 @@
 
-# TaskFlow - Smart To-Do List App
+# Do'It - Smart To-Do List App
 
 Une application mobile de gestion de tâches intelligente avec synchronisation temps réel, géolocalisation, et intégration calendrier.
 
@@ -75,8 +75,8 @@ Do-it-repo/
 ### 1. Cloner le Repository
 
 ```bash
-git clone https://github.com/votre-username/taskflow.git
-cd taskflow
+git clone https://github.com/votre-username/doit.git
+cd doit
 ```
 
 ### 2. Installation Backend
@@ -99,7 +99,7 @@ NODE_ENV=development
 PORT=3000
 
 # Database
-MONGODB_URI=mongodb://localhost:27017/taskflow
+MONGODB_URI=mongodb://localhost:27017/doit
 
 # JWT
 JWT_SECRET=your-super-secret-jwt-key-change-this
@@ -173,8 +173,8 @@ docker-compose down
 
 ```bash
 cd backend
-docker build -t taskflow-backend .
-docker run -p 3000:3000 --env-file .env taskflow-backend
+docker build -t doit-backend .
+docker run -p 3000:3000 --env-file .env doit-backend
 ```
 
 ## 📱 Builds Production Mobile
@@ -263,7 +263,7 @@ npm run test:e2e        # Tests E2E avec Detox
 ```
 NODE_ENV=development|production
 PORT=3000
-MONGODB_URI=mongodb://localhost:27017/taskflow
+MONGODB_URI=mongodb://localhost:27017/doit
 JWT_SECRET=votre-secret-jwt
 JWT_REFRESH_SECRET=votre-secret-refresh
 GOOGLE_CLIENT_ID=votre-google-client-id
@@ -336,7 +336,7 @@ npm install
 
 Pour toute question ou problème :
 - Ouvrir une issue sur GitHub
-- Email : support@taskflow.app
+- Email : support@doit.app
 
 ---
 

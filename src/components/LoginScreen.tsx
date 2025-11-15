@@ -15,7 +15,7 @@ export function LoginScreen({ onNavigate }: LoginScreenProps) {
         <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-violet-500 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-lg">
           <LogIn className="w-10 h-10 text-white" />
         </div>
-        <h1 className="text-neutral-900 mb-2">TaskFlow</h1>
+        <h1 className="text-neutral-900 mb-2">Do'It</h1>
         <p className="text-neutral-600">Gérez votre vie en toute simplicité</p>
       </div>
 

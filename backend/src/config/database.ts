@@ -3,7 +3,7 @@ import logger from './logger';
 
 const connectDB = async (): Promise<void> => {
   try {
-    const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/taskflow';
+    const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/doit';
 
     await mongoose.connect(mongoURI);
 

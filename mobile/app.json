@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "TaskFlow",
-    "slug": "taskflow",
+    "name": "Do'It",
+    "slug": "doit",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -16,12 +16,12 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.taskflow.app",
+      "bundleIdentifier": "com.doit.app",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "TaskFlow utilise votre localisation pour vous rappeler vos tâches à proximité.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "TaskFlow utilise votre localisation pour vous rappeler vos tâches même en arrière-plan.",
-        "NSLocationAlwaysUsageDescription": "TaskFlow utilise votre localisation pour le géofencing de vos tâches.",
-        "NSCalendarsUsageDescription": "TaskFlow synchronise vos tâches avec votre calendrier.",
+        "NSLocationWhenInUseUsageDescription": "Do'It utilise votre localisation pour vous rappeler vos tâches à proximité.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Do'It utilise votre localisation pour vous rappeler vos tâches même en arrière-plan.",
+        "NSLocationAlwaysUsageDescription": "Do'It utilise votre localisation pour le géofencing de vos tâches.",
+        "NSCalendarsUsageDescription": "Do'It synchronise vos tâches avec votre calendrier.",
         "UIBackgroundModes": [
           "location",
           "remote-notification"
@@ -36,7 +36,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.taskflow.app",
+      "package": "com.doit.app",
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
