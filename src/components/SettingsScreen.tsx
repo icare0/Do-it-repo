@@ -217,7 +217,7 @@ export function SettingsScreen({ onNavigate }: SettingsScreenProps) {
 
         {/* App Info */}
         <div className="text-center py-6 text-neutral-400">
-          <p>TaskFlow v1.0.0</p>
+          <p>Do'It v1.0.0</p>
           <p className="mt-1">© 2024 - Tous droits réservés</p>
         </div>
       </div>

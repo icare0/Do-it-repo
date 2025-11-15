@@ -1,5 +1,3 @@
-import * as chrono from 'chrono-node';
-
 interface ParsedTask {
   title: string;
   date?: Date;
@@ -22,27 +20,69 @@ class NLPService {
     low: ['peut-être', 'si possible', 'quand tu peux'],
   };
 
+  private dayKeywords: { [key: string]: number } = {
+    'aujourd\'hui': 0,
+    'aujourdhui': 0,
+    'demain': 1,
+    'après-demain': 2,
+    'lundi': 1,
+    'mardi': 2,
+    'mercredi': 3,
+    'jeudi': 4,
+    'vendredi': 5,
+    'samedi': 6,
+    'dimanche': 0,
+  };
+
   parseQuickAdd(input: string): ParsedTask {
     const parsed: ParsedTask = {
       title: input,
     };
 
-    // Parse date and time using chrono
-    const chronoResult = chrono.parse(input, new Date(), { forwardDate: true });
-    if (chronoResult.length > 0) {
-      const result = chronoResult[0];
-      parsed.date = result.start.date();
+    let cleanedInput = input;
 
-      // Extract time if available
-      if (result.start.get('hour') !== undefined) {
-        const hour = result.start.get('hour') || 0;
-        const minute = result.start.get('minute') || 0;
-        parsed.time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-      }
-
-      // Remove date/time from title
-      parsed.title = input.replace(result.text, '').trim();
+    // Parse relative dates (aujourd'hui, demain, après-demain)
+    const relativeDatePattern = /(aujourd'?hui|demain|après-demain)/i;
+    const relativeDateMatch = input.match(relativeDatePattern);
+    if (relativeDateMatch) {
+      const keyword = relativeDateMatch[1].toLowerCase().replace("'", '');
+      const daysToAdd = keyword === 'aujourdhui' || keyword === 'aujourdhui' ? 0 :
+                        keyword === 'demain' ? 1 : 2;
+      const date = new Date();
+      date.setDate(date.getDate() + daysToAdd);
+      parsed.date = date;
+      cleanedInput = cleanedInput.replace(relativeDateMatch[0], '').trim();
     }
+
+    // Parse absolute dates (DD/MM, DD/MM/YYYY)
+    const absoluteDatePattern = /(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?/;
+    const absoluteDateMatch = input.match(absoluteDatePattern);
+    if (absoluteDateMatch && !parsed.date) {
+      const day = parseInt(absoluteDateMatch[1]);
+      const month = parseInt(absoluteDateMatch[2]) - 1; // JS months are 0-indexed
+      const year = absoluteDateMatch[3] ?
+        (absoluteDateMatch[3].length === 2 ? 2000 + parseInt(absoluteDateMatch[3]) : parseInt(absoluteDateMatch[3])) :
+        new Date().getFullYear();
+      parsed.date = new Date(year, month, day);
+      cleanedInput = cleanedInput.replace(absoluteDateMatch[0], '').trim();
+    }
+
+    // Parse time (14h30, 14:30, 14h, à 14h30)
+    const timePattern = /(?:à\s+)?(\d{1,2})[h:](\d{2})?/i;
+    const timeMatch = input.match(timePattern);
+    if (timeMatch) {
+      const hour = parseInt(timeMatch[1]);
+      const minute = timeMatch[2] ? parseInt(timeMatch[2]) : 0;
+      parsed.time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+      cleanedInput = cleanedInput.replace(timeMatch[0], '').trim();
+
+      // If we have a time but no date, assume today
+      if (!parsed.date) {
+        parsed.date = new Date();
+      }
+    }
+
+    parsed.title = cleanedInput;
 
     // Parse duration
     const durationMatch = input.match(/(\d+)\s*(h|heure|heures|min|minutes?)/i);

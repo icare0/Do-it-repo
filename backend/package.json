@@ -1,7 +1,7 @@
 {
-  "name": "taskflow-backend",
+  "name": "doit-backend",
   "version": "1.0.0",
-  "description": "TaskFlow API Backend",
+  "description": "Do'It API Backend",
   "main": "dist/server.js",
   "scripts": {
     "dev": "nodemon src/server.ts",

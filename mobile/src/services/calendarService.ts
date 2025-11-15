@@ -52,10 +52,10 @@ class CalendarService {
     const defaultCalendarSource =
       Platform.OS === 'ios'
         ? await Calendar.getDefaultCalendarAsync()
-        : { isLocalAccount: true, name: 'TaskFlow' };
+        : { isLocalAccount: true, name: 'Do'It' };
 
     const newCalendarId = await Calendar.createCalendarAsync({
-      title: 'TaskFlow',
+      title: 'Do'It',
       color: '#3B82F6',
       entityType: Calendar.EntityTypes.EVENT,
       sourceId:
@@ -66,7 +66,7 @@ class CalendarService {
         Platform.OS === 'android'
           ? (defaultCalendarSource as any)
           : undefined,
-      name: 'TaskFlow',
+      name: 'Do'It',
       ownerAccount: 'personal',
       accessLevel: Calendar.CalendarAccessLevel.OWNER,
     });

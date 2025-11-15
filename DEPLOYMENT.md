@@ -1,6 +1,6 @@
-# Guide de Déploiement - TaskFlow
+# Guide de Déploiement - Do'It
 
-Ce guide détaille les étapes pour déployer TaskFlow en production.
+Ce guide détaille les étapes pour déployer Do'It en production.
 
 ## 📋 Table des Matières
 
@@ -53,8 +53,8 @@ docker-compose --version
 
 ```bash
 # Cloner le repository
-git clone https://github.com/votre-username/taskflow.git
-cd taskflow
+git clone https://github.com/votre-username/doit.git
+cd doit
 
 # Créer les variables d'environnement
 cp backend/.env.example backend/.env
@@ -67,7 +67,7 @@ nano backend/.env
 Option A : Utiliser MongoDB Atlas (Cloud)
 ```bash
 # Dans backend/.env
-MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/taskflow?retryWrites=true&w=majority
+MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/doit?retryWrites=true&w=majority
 ```
 
 Option B : MongoDB local avec Docker (docker-compose.yml déjà configuré)
@@ -96,7 +96,7 @@ apt-get update
 apt-get install nginx -y
 
 # Créer la configuration
-nano /etc/nginx/sites-available/taskflow
+nano /etc/nginx/sites-available/doit
 ```
 
 Configuration Nginx :
@@ -122,7 +122,7 @@ server {
 
 ```bash
 # Activer le site
-ln -s /etc/nginx/sites-available/taskflow /etc/nginx/sites-enabled/
+ln -s /etc/nginx/sites-available/doit /etc/nginx/sites-enabled/
 nginx -t
 systemctl restart nginx
 ```
@@ -151,7 +151,7 @@ heroku login
 
 # Créer l'application
 cd backend
-heroku create taskflow-api
+heroku create doit-api
 
 # Configurer MongoDB
 heroku addons:create mongolab:sandbox
@@ -199,17 +199,17 @@ eas build:configure
 ```json
 {
   "expo": {
-    "name": "TaskFlow",
-    "slug": "taskflow",
+    "name": "Do'It",
+    "slug": "doit",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "ios": {
-      "bundleIdentifier": "com.votreentreprise.taskflow",
+      "bundleIdentifier": "com.votreentreprise.doit",
       "buildNumber": "1"
     },
     "android": {
-      "package": "com.votreentreprise.taskflow",
+      "package": "com.votreentreprise.doit",
       "versionCode": 1
     }
   }
@@ -292,7 +292,7 @@ NODE_ENV=production
 PORT=3000
 
 # Database
-MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/taskflow
+MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/doit
 
 # JWT
 JWT_SECRET=generate-with-openssl-rand-hex-32
@@ -351,11 +351,11 @@ npm install -g pm2
 
 # Démarrer l'app
 cd backend
-pm2 start dist/server.js --name taskflow-api
+pm2 start dist/server.js --name doit-api
 
 # Monitoring
 pm2 status
-pm2 logs taskflow-api
+pm2 logs doit-api
 pm2 monit
 
 # Auto-restart au boot
@@ -382,12 +382,12 @@ Les backups automatiques sont inclus.
 
 ```bash
 # Backup manuel
-docker exec taskflow-mongodb mongodump --out /backup
+docker exec doit-mongodb mongodump --out /backup
 
 # Script automatique (cron)
 #!/bin/bash
 DATE=$(date +%Y%m%d_%H%M%S)
-docker exec taskflow-mongodb mongodump --out /backup/backup_$DATE
+docker exec doit-mongodb mongodump --out /backup/backup_$DATE
 # Garder seulement les 7 derniers jours
 find /backup -type d -mtime +7 -exec rm -rf {} +
 ```
@@ -396,7 +396,7 @@ find /backup -type d -mtime +7 -exec rm -rf {} +
 
 ```bash
 # Backend
-cd taskflow
+cd doit
 git pull origin main
 docker-compose down
 docker-compose up -d --build

@@ -68,7 +68,7 @@ export default function LoginScreen() {
               <Ionicons name="checkmark-done" size={48} color="#fff" />
             </View>
             <Text style={[styles.title, { color: theme.colors.text }]}>
-              TaskFlow
+              Do'It
             </Text>
             <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
               Gérez votre vie en toute simplicité

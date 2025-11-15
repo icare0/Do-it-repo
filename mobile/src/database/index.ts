@@ -8,7 +8,7 @@ import SyncQueueModel from './models/SyncQueue';
 const adapter = new SQLiteAdapter({
   schema,
   // optional database name or file system path
-  // dbName: 'taskflow',
+  // dbName: 'doit',
   // optional migration config
   // migrations,
 });
