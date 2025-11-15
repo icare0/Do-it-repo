@@ -25,7 +25,7 @@ export const register = async (req: AuthRequest, res: Response): Promise<void> =
     });
 
     const tokens = generateTokenPair({
-      id: user._id.toString(),
+      id: user.id,
       email: user.email,
       name: user.name,
     });
@@ -66,7 +66,7 @@ export const login = async (req: AuthRequest, res: Response): Promise<void> => {
     }
 
     const tokens = generateTokenPair({
-      id: user._id.toString(),
+      id: user.id,
       email: user.email,
       name: user.name,
     });
@@ -113,7 +113,7 @@ export const googleAuth = async (req: AuthRequest, res: Response): Promise<void>
     }
 
     const tokens = generateTokenPair({
-      id: user._id.toString(),
+      id: user.id,
       email: user.email,
       name: user.name,
     });
@@ -148,7 +148,7 @@ export const refreshToken = async (req: AuthRequest, res: Response): Promise<voi
     }
 
     const tokens = generateTokenPair({
-      id: user._id.toString(),
+      id: user.id,
       email: user.email,
       name: user.name,
     });
