@@ -44,8 +44,7 @@
         "READ_CALENDAR",
         "WRITE_CALENDAR",
         "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE",
-        "DETECT_SCREEN_CAPTURE"
+        "VIBRATE"
       ],
       "googleServicesFile": "./google-services.json",
       "config": {
@@ -67,6 +66,11 @@
       [
         "expo-build-properties",
         {
+          "android": {
+            "compileSdkVersion": 33,
+            "targetSdkVersion": 33,
+            "buildToolsVersion": "33.0.0"
+          },
           "ios": {
             "useFrameworks": "static"
           }
