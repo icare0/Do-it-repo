@@ -1,3 +1,5 @@
+import auth from '@react-native-firebase/auth';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiService } from './api';
 import { useAuthStore } from '@/store/authStore';
@@ -9,6 +11,11 @@ const USER_KEY = 'user';
 class AuthService {
   async initialize() {
     try {
+      // Configure Google Sign In
+      GoogleSignin.configure({
+        webClientId: 'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com',
+      });
+
       // Check if user is already logged in
       const token = await AsyncStorage.getItem(TOKEN_KEY);
       const refreshToken = await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
@@ -50,9 +57,28 @@ class AuthService {
 
   async loginWithGoogle() {
     try {
-      // TODO: Implement Google Sign-In when ready
-      // For now, return a mock error
-      throw new Error('Google Sign-In not yet configured. Please use email/password login.');
+      // Check if device supports Google Play
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+
+      // Get user info
+      const { idToken } = await GoogleSignin.signIn();
+
+      if (!idToken) throw new Error('No ID token received');
+
+      // Send to backend
+      const response = await apiService.loginWithGoogle(idToken);
+      await this.saveAuthData(response.token, response.refreshToken, response.user);
+      return response.user;
+    } catch (error) {
+      throw this.handleAuthError(error);
+    }
+  }
+
+  async loginWithApple() {
+    try {
+      // Apple Sign In logic will be implemented
+      // This requires iOS-specific configuration
+      throw new Error('Apple Sign In not yet implemented');
     } catch (error) {
       throw this.handleAuthError(error);
     }
@@ -60,79 +86,49 @@ class AuthService {
 
   async logout() {
     try {
-      await AsyncStorage.multiRemove([TOKEN_KEY, REFRESH_TOKEN_KEY, USER_KEY]);
-      useAuthStore.getState().logout();
+      await apiService.logout();
     } catch (error) {
-      console.error('Logout error:', error);
-      throw error;
-    }
-  }
-
-  async refreshAccessToken(refreshToken: string) {
-    try {
-      const response = await apiService.refreshToken(refreshToken);
-      await AsyncStorage.setItem(TOKEN_KEY, response.token);
-      useAuthStore.getState().setTokens(response.token, refreshToken);
-      return response.token;
-    } catch (error) {
-      // If refresh fails, logout user
-      await this.logout();
-      throw error;
-    }
-  }
-
-  async resetPassword(email: string) {
-    try {
-      await apiService.resetPassword(email);
-    } catch (error) {
-      throw this.handleAuthError(error);
-    }
-  }
-
-  async updateProfile(updates: { name?: string; email?: string }) {
-    try {
-      const response = await apiService.updateProfile(updates);
-      const userStr = await AsyncStorage.getItem(USER_KEY);
-      if (userStr) {
-        const user = JSON.parse(userStr);
-        const updatedUser = { ...user, ...response.user };
-        await AsyncStorage.setItem(USER_KEY, JSON.stringify(updatedUser));
-        useAuthStore.getState().setUser(updatedUser);
+      console.error('Logout API error:', error);
+    } finally {
+      await this.clearAuthData();
+      if (await GoogleSignin.isSignedIn()) {
+        await GoogleSignin.signOut();
       }
-      return response.user;
-    } catch (error) {
-      throw this.handleAuthError(error);
     }
   }
 
-  async deleteAccount() {
+  async refreshToken() {
     try {
-      await apiService.deleteAccount();
-      await this.logout();
+      const refreshToken = await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
+      if (!refreshToken) throw new Error('No refresh token');
+
+      // The API service interceptor handles this automatically
+      return true;
     } catch (error) {
-      throw this.handleAuthError(error);
+      await this.clearAuthData();
+      return false;
     }
   }
 
   private async saveAuthData(token: string, refreshToken: string, user: any) {
-    await AsyncStorage.multiSet([
-      [TOKEN_KEY, token],
-      [REFRESH_TOKEN_KEY, refreshToken],
-      [USER_KEY, JSON.stringify(user)],
-    ]);
+    await AsyncStorage.setItem(TOKEN_KEY, token);
+    await AsyncStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+    await AsyncStorage.setItem(USER_KEY, JSON.stringify(user));
 
     useAuthStore.getState().setUser(user);
     useAuthStore.getState().setTokens(token, refreshToken);
   }
 
+  private async clearAuthData() {
+    await AsyncStorage.multiRemove([TOKEN_KEY, REFRESH_TOKEN_KEY, USER_KEY]);
+    useAuthStore.getState().logout();
+  }
+
   private handleAuthError(error: any): Error {
-    if (error?.response?.data?.message) {
-      return new Error(error.response.data.message);
+    if (error.response) {
+      return new Error(error.response.data.message || 'Authentication failed');
     }
-    if (error?.message) {
-      return new Error(error.message);
-    }
-    return new Error('Une erreur est survenue lors de l\'authentification');
+    return new Error(error.message || 'An error occurred');
   }
 }
 
