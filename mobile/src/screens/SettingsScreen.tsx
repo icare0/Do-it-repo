@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Switch, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,12 +10,18 @@ import { useAuthStore } from '@/store/authStore';
 import { useSyncStore } from '@/store/syncStore';
 import { getTheme } from '@/theme';
 import { authService } from '@/services/authService';
+import { syncService } from '@/services/syncService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function SettingsScreen() {
   const { colorScheme, toggleTheme } = useThemeStore();
   const theme = getTheme(colorScheme);
   const { user } = useAuthStore();
-  const { lastSync, pendingChanges } = useSyncStore();
+  const { lastSync, pendingChanges, isSyncing } = useSyncStore();
+
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [locationEnabled, setLocationEnabled] = useState(true);
+  const [syncing, setSyncing] = useState(false);
 
   async function handleLogout() {
     Alert.alert('Déconnexion', 'Êtes-vous sûr de vouloir vous déconnecter ?', [
@@ -28,6 +34,35 @@ export default function SettingsScreen() {
         },
       },
     ]);
+  }
+
+  async function handleForceSync() {
+    try {
+      setSyncing(true);
+      await syncService.forceSyncNow();
+      Alert.alert('Succès', 'Synchronisation terminée avec succès', [{ text: 'OK' }]);
+    } catch (error) {
+      console.error('Sync error:', error);
+      Alert.alert('Erreur', 'Impossible de synchroniser. Vérifiez votre connexion.', [{ text: 'OK' }]);
+    } finally {
+      setSyncing(false);
+    }
+  }
+
+  async function handleToggleNotifications(value: boolean) {
+    setNotificationsEnabled(value);
+    await AsyncStorage.setItem('notifications_enabled', value.toString());
+    if (value) {
+      Alert.alert('Notifications activées', 'Vous recevrez des rappels pour vos tâches', [{ text: 'OK' }]);
+    }
+  }
+
+  async function handleToggleLocation(value: boolean) {
+    setLocationEnabled(value);
+    await AsyncStorage.setItem('location_enabled', value.toString());
+    if (value) {
+      Alert.alert('Localisation activée', 'Vous pouvez maintenant ajouter des lieux à vos tâches', [{ text: 'OK' }]);
+    }
   }
 
   return (
@@ -64,16 +99,56 @@ export default function SettingsScreen() {
           </Card>
         </View>
 
+        {/* Notifications */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Notifications</Text>
+          <Card style={styles.settingCard}>
+            <View style={styles.settingRow}>
+              <View style={styles.settingInfo}>
+                <Ionicons name="notifications-outline" size={24} color={theme.colors.text} />
+                <Text style={[styles.settingLabel, { color: theme.colors.text }]}>Activer les rappels</Text>
+              </View>
+              <Switch value={notificationsEnabled} onValueChange={handleToggleNotifications} />
+            </View>
+          </Card>
+        </View>
+
+        {/* Location */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Localisation</Text>
+          <Card style={styles.settingCard}>
+            <View style={styles.settingRow}>
+              <View style={styles.settingInfo}>
+                <Ionicons name="location-outline" size={24} color={theme.colors.text} />
+                <Text style={[styles.settingLabel, { color: theme.colors.text }]}>Activer la localisation</Text>
+              </View>
+              <Switch value={locationEnabled} onValueChange={handleToggleLocation} />
+            </View>
+          </Card>
+        </View>
+
         {/* Sync Status */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Synchronisation</Text>
           <Card style={styles.settingCard}>
-            <Text style={[styles.syncText, { color: theme.colors.textSecondary }]}>
-              Dernière synchro: {lastSync ? lastSync.toLocaleString('fr-FR') : 'Jamais'}
-            </Text>
-            <Text style={[styles.syncText, { color: theme.colors.textSecondary }]}>
-              Modifications en attente: {pendingChanges}
-            </Text>
+            <View style={styles.syncRow}>
+              <View style={styles.syncInfo}>
+                <Text style={[styles.syncText, { color: theme.colors.textSecondary }]}>
+                  Dernière synchro: {lastSync ? lastSync.toLocaleString('fr-FR') : 'Jamais'}
+                </Text>
+                <Text style={[styles.syncText, { color: theme.colors.textSecondary }]}>
+                  Modifications en attente: {pendingChanges}
+                </Text>
+              </View>
+              <Button
+                title="Synchroniser"
+                onPress={handleForceSync}
+                loading={syncing || isSyncing}
+                disabled={syncing || isSyncing}
+                variant="outline"
+                size="small"
+              />
+            </View>
           </Card>
         </View>
 
@@ -107,5 +182,7 @@ const styles = StyleSheet.create({
   settingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   settingInfo: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   settingLabel: { fontSize: 16 },
+  syncRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
+  syncInfo: { flex: 1 },
   syncText: { fontSize: 14, marginBottom: 4 },
 });

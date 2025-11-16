@@ -11,6 +11,8 @@ const USER_KEY = 'user';
 class AuthService {
   async initialize() {
     try {
+      useAuthStore.getState().setLoading(true);
+
       // Configure Google Sign In
       GoogleSignin.configure({
         webClientId: '1:731566945558:web:5b800388f785d4a972cc37',
@@ -32,6 +34,8 @@ class AuthService {
     } catch (error) {
       console.error('Auth initialization error:', error);
       return false;
+    } finally {
+      useAuthStore.getState().setLoading(false);
     }
   }
 

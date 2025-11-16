@@ -59,8 +59,8 @@ export default function QuickAddScreen() {
       const taskData = parsedTask || { title: input };
 
       // Create task in local database
-      await database.write(async () => {
-        const newTask = await database.get<TaskModel>('tasks').create((task) => {
+      const newTask = await database.write(async () => {
+        return await database.get<TaskModel>('tasks').create((task) => {
           task.userId = user.id;
           task.title = taskData.title;
           task.priority = taskData.priority || 'medium';
@@ -75,30 +75,30 @@ export default function QuickAddScreen() {
             task.duration = taskData.duration;
           }
         });
+      });
 
-        // Add to store
-        addTask({
-          id: newTask.id,
-          userId: user.id,
-          title: taskData.title,
-          completed: false,
-          priority: taskData.priority || 'medium',
-          category: taskData.category,
-          startDate: taskData.date,
-          duration: taskData.duration,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        });
+      // Add to store
+      addTask({
+        id: newTask.id,
+        userId: user.id,
+        title: taskData.title,
+        completed: false,
+        priority: taskData.priority || 'medium',
+        category: taskData.category,
+        startDate: taskData.date,
+        duration: taskData.duration,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
 
-        // Add to sync queue
-        await syncService.addToSyncQueue('task', newTask.id, 'create', {
-          userId: user.id,
-          title: taskData.title,
-          priority: taskData.priority || 'medium',
-          category: taskData.category,
-          startDate: taskData.date,
-          duration: taskData.duration,
-        });
+      // Add to sync queue AFTER the write is complete to avoid nested writes
+      await syncService.addToSyncQueue('task', newTask.id, 'create', {
+        userId: user.id,
+        title: taskData.title,
+        priority: taskData.priority || 'medium',
+        category: taskData.category,
+        startDate: taskData.date,
+        duration: taskData.duration,
       });
 
       navigation.goBack();
@@ -125,10 +125,10 @@ export default function QuickAddScreen() {
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         {/* Quick Input */}
-        <View style={[styles.inputContainer, { backgroundColor: theme.colors.surfaceSecondary }]}>
+        <View style={[styles.inputContainer, { backgroundColor: theme.colors.surfaceSecondary, borderColor: theme.colors.border }]}>
           <TextInput
             style={[styles.input, { color: theme.colors.text }]}
-            placeholder="Ex: Appeler Paul demain à 14h #travail"
+            placeholder="Décrivez votre tâche..."
             placeholderTextColor={theme.colors.textTertiary}
             value={input}
             onChangeText={setInput}
@@ -188,21 +188,64 @@ export default function QuickAddScreen() {
 
         {/* Help Text */}
         <View style={styles.helpSection}>
-          <Text style={[styles.helpTitle, { color: theme.colors.text }]}>
-            Exemples de saisie rapide :
-          </Text>
-          <Text style={[styles.helpText, { color: theme.colors.textSecondary }]}>
-            • "Réunion demain à 15h"
-          </Text>
-          <Text style={[styles.helpText, { color: theme.colors.textSecondary }]}>
-            • "Acheter du lait #courses"
-          </Text>
-          <Text style={[styles.helpText, { color: theme.colors.textSecondary }]}>
-            • "Call important client urgent"
-          </Text>
-          <Text style={[styles.helpText, { color: theme.colors.textSecondary }]}>
-            • "Gym session 1h #sport"
-          </Text>
+          <View style={[styles.helpCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+            <View style={styles.helpHeader}>
+              <Ionicons name="bulb-outline" size={20} color={theme.colors.primary} />
+              <Text style={[styles.helpTitle, { color: theme.colors.text }]}>
+                Saisie intelligente
+              </Text>
+            </View>
+            <Text style={[styles.helpDescription, { color: theme.colors.textSecondary }]}>
+              Décrivez simplement votre tâche et l'application détectera automatiquement les dates, heures, lieux, catégories et priorités.
+            </Text>
+
+            <View style={styles.examplesContainer}>
+              <View style={styles.exampleItem}>
+                <View style={[styles.exampleBadge, { backgroundColor: `${theme.colors.primary}15` }]}>
+                  <Ionicons name="calendar-outline" size={14} color={theme.colors.primary} />
+                </View>
+                <Text style={[styles.exampleText, { color: theme.colors.text }]}>
+                  "Réunion équipe demain à 15h30"
+                </Text>
+              </View>
+
+              <View style={styles.exampleItem}>
+                <View style={[styles.exampleBadge, { backgroundColor: `${theme.colors.primary}15` }]}>
+                  <Ionicons name="pricetag-outline" size={14} color={theme.colors.primary} />
+                </View>
+                <Text style={[styles.exampleText, { color: theme.colors.text }]}>
+                  "Acheter pain et lait #courses"
+                </Text>
+              </View>
+
+              <View style={styles.exampleItem}>
+                <View style={[styles.exampleBadge, { backgroundColor: `${theme.colors.primary}15` }]}>
+                  <Ionicons name="alert-circle-outline" size={14} color={theme.colors.primary} />
+                </View>
+                <Text style={[styles.exampleText, { color: theme.colors.text }]}>
+                  "Finir rapport urgent projet #travail"
+                </Text>
+              </View>
+
+              <View style={styles.exampleItem}>
+                <View style={[styles.exampleBadge, { backgroundColor: `${theme.colors.primary}15` }]}>
+                  <Ionicons name="fitness-outline" size={14} color={theme.colors.primary} />
+                </View>
+                <Text style={[styles.exampleText, { color: theme.colors.text }]}>
+                  "Séance sport 1h après-demain #sport"
+                </Text>
+              </View>
+
+              <View style={styles.exampleItem}>
+                <View style={[styles.exampleBadge, { backgroundColor: `${theme.colors.primary}15` }]}>
+                  <Ionicons name="medkit-outline" size={14} color={theme.colors.primary} />
+                </View>
+                <Text style={[styles.exampleText, { color: theme.colors.text }]}>
+                  "RDV dentiste 15/03 à 10h #personnel"
+                </Text>
+              </View>
+            </View>
+          </View>
         </View>
       </ScrollView>
 
@@ -243,6 +286,7 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     borderRadius: 16,
+    borderWidth: 2,
     padding: 16,
     marginBottom: 24,
     minHeight: 120,
@@ -278,16 +322,47 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   helpSection: {
-    marginTop: 24,
+    marginTop: 16,
+  },
+  helpCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 20,
+  },
+  helpHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
   },
   helpTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
+    fontSize: 16,
+    fontWeight: '700',
   },
-  helpText: {
+  helpDescription: {
     fontSize: 14,
-    marginBottom: 4,
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  examplesContainer: {
+    gap: 12,
+  },
+  exampleItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  exampleBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  exampleText: {
+    fontSize: 14,
+    flex: 1,
+    fontStyle: 'italic',
   },
   footer: {
     paddingHorizontal: 24,
