@@ -16,19 +16,22 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.doit.app",
+      "bundleIdentifier": "com.icare.doit",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Do'It utilise votre localisation pour vous rappeler vos tâches à proximité.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Do'It utilise votre localisation pour vous rappeler vos tâches même en arrière-plan.",
         "NSLocationAlwaysUsageDescription": "Do'It utilise votre localisation pour le géofencing de vos tâches.",
         "NSCalendarsUsageDescription": "Do'It synchronise vos tâches avec votre calendrier.",
+        "NSCalendarsFullAccessUsageDescription": "Allow $(PRODUCT_NAME) to access your calendars",
+        "NSRemindersUsageDescription": "Allow $(PRODUCT_NAME) to access your reminders",
+        "NSRemindersFullAccessUsageDescription": "Allow $(PRODUCT_NAME) to access your reminders",
         "UIBackgroundModes": [
           "location",
           "remote-notification"
         ]
       },
       "config": {
-        "googleMapsApiKey": "YOUR_GOOGLE_MAPS_API_KEY_IOS"
+        "googleMapsApiKey": "AIzaSyA3AsIvoyeasViVvlucuY4HGRY4Q4USdBc"
       }
     },
     "android": {
@@ -36,7 +39,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.doit.app",
+      "package": "com.icare.doit",
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
@@ -44,12 +47,16 @@
         "READ_CALENDAR",
         "WRITE_CALENDAR",
         "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE"
+        "VIBRATE",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.READ_CALENDAR",
+        "android.permission.WRITE_CALENDAR"
       ],
       "googleServicesFile": "./google-services.json",
       "config": {
         "googleMaps": {
-          "apiKey": "YOUR_GOOGLE_MAPS_API_KEY_ANDROID"
+          "apiKey": "AIzaSyA3AsIvoyeasViVvlucuY4HGRY4Q4USdBc"
         }
       }
     },
@@ -75,11 +82,12 @@
             "useFrameworks": "static"
           }
         }
-      ]
+      ],
+      "expo-font"
     ],
     "extra": {
       "eas": {
-        "projectId": "8dffdf0a-29c3-483c-b083-02cc73b7777e"
+        "projectId": "6500dd00-e420-448c-8f68-66cceb753093"
       }
     },
     "owner": "icare0"

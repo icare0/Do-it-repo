@@ -13,7 +13,7 @@ class AuthService {
     try {
       // Configure Google Sign In
       GoogleSignin.configure({
-        webClientId: 'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com',
+        webClientId: '1:731566945558:web:5b800388f785d4a972cc37',
       });
 
       // Check if user is already logged in
