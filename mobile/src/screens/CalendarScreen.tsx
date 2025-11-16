@@ -19,7 +19,7 @@ export default function CalendarScreen() {
       setSyncing(true);
 
       // Request calendar permissions
-      const hasPermission = await calendarService.requestCalendarPermissions();
+      const hasPermission = await calendarService.requestPermissions();
 
       if (!hasPermission) {
         Alert.alert(
