@@ -3,28 +3,31 @@ import { database, TaskModel, SyncQueueModel } from '@/database';
 import { apiService } from './api';
 import { useSyncStore } from '@/store/syncStore';
 import { useTaskStore } from '@/store/taskStore';
+import { useAuthStore } from '@/store/authStore';
 
 class SyncService {
   private syncInterval: NodeJS.Timeout | null = null;
   private isOnline: boolean = true;
 
   async initialize() {
-    // Monitor network status
     NetInfo.addEventListener((state) => {
       const wasOffline = !this.isOnline;
       this.isOnline = state.isConnected || false;
 
-      // If we just came online, trigger sync
       if (wasOffline && this.isOnline) {
         this.sync();
       }
     });
 
-    // Start periodic sync (every 5 minutes when online)
     this.startPeriodicSync();
 
-    // Initial sync
-    await this.sync();
+    const { token, refreshToken } = useAuthStore.getState();
+    if (token && refreshToken) {
+      console.log("Initial sync triggered");
+      await this.sync();
+    } else {
+      console.log("Initial sync skipped (no tokens yet)");
+    }
   }
 
   private startPeriodicSync() {
@@ -36,12 +39,18 @@ class SyncService {
       if (this.isOnline) {
         this.sync();
       }
-    }, 5 * 60 * 1000); // 5 minutes
+    }, 5 * 60 * 1000);
   }
 
   async sync() {
     if (!this.isOnline) {
       console.log('Offline, skipping sync');
+      return;
+    }
+
+    const { token, refreshToken } = useAuthStore.getState();
+    if (!token || !refreshToken) {
+      console.log('Skipping sync - no token or refreshToken');
       return;
     }
 
@@ -54,10 +63,7 @@ class SyncService {
     try {
       syncStore.startSync();
 
-      // 1. Push local changes to server
       await this.pushChanges();
-
-      // 2. Pull server changes
       await this.pullChanges();
 
       syncStore.finishSync();
@@ -69,7 +75,6 @@ class SyncService {
 
   private async pushChanges() {
     try {
-      // Get all pending changes from sync queue
       const syncQueue = await database
         .get<SyncQueueModel>('sync_queue')
         .query()
@@ -77,13 +82,10 @@ class SyncService {
 
       const pendingChanges = syncQueue.filter((item) => !item.synced);
 
-      if (pendingChanges.length === 0) {
-        return;
-      }
+      if (pendingChanges.length === 0) return;
 
       console.log(`Pushing ${pendingChanges.length} changes to server`);
 
-      // Group changes by entity type
       const groupedChanges: Record<string, any[]> = {};
       for (const change of pendingChanges) {
         if (!groupedChanges[change.entityType]) {
@@ -96,10 +98,8 @@ class SyncService {
         });
       }
 
-      // Send to server
-      const response = await apiService.sync(groupedChanges);
+      await apiService.sync(groupedChanges);
 
-      // Mark changes as synced
       await database.write(async () => {
         for (const change of pendingChanges) {
           await change.update((record) => {
@@ -108,10 +108,7 @@ class SyncService {
         }
       });
 
-      // Update sync store
-      useSyncStore.getState().setSyncStatus({
-        pendingChanges: 0,
-      });
+      useSyncStore.getState().setSyncStatus({ pendingChanges: 0 });
 
       console.log('Push complete');
     } catch (error) {
@@ -125,33 +122,26 @@ class SyncService {
       const lastSync = useSyncStore.getState().lastSync;
       const lastSyncTime = lastSync ? lastSync.toISOString() : undefined;
 
-      // Get changes from server
       const response = await apiService.getTasks({
         startDate: lastSyncTime,
       });
 
-      if (!response.tasks || response.tasks.length === 0) {
-        return;
-      }
+      if (!response.tasks || response.tasks.length === 0) return;
 
       console.log(`Pulling ${response.tasks.length} tasks from server`);
 
-      // Update local database
       await database.write(async () => {
         for (const serverTask of response.tasks) {
-          // Check if task exists locally
           const localTask = await database
             .get<TaskModel>('tasks')
             .find(serverTask.id)
             .catch(() => null);
 
           if (localTask) {
-            // Update existing task
             await localTask.update((task) => {
               Object.assign(task, this.mapServerTaskToLocal(serverTask));
             });
           } else {
-            // Create new task
             await database.get<TaskModel>('tasks').create((task) => {
               task._raw.id = serverTask.id;
               Object.assign(task, this.mapServerTaskToLocal(serverTask));
@@ -160,7 +150,6 @@ class SyncService {
         }
       });
 
-      // Update task store
       await this.refreshTaskStore();
 
       console.log('Pull complete');
@@ -190,12 +179,7 @@ class SyncService {
     };
   }
 
-  async addToSyncQueue(
-    entityType: string,
-    entityId: string,
-    operation: 'create' | 'update' | 'delete',
-    data: any
-  ) {
+  async addToSyncQueue(entityType: string, entityId: string, operation: 'create' | 'update' | 'delete', data: any) {
     await database.write(async () => {
       await database.get<SyncQueueModel>('sync_queue').create((record) => {
         record.entityType = entityType;
@@ -208,17 +192,14 @@ class SyncService {
 
     useSyncStore.getState().incrementPendingChanges();
 
-    // Trigger immediate sync if online
-    if (this.isOnline) {
+    const { token, refreshToken } = useAuthStore.getState();
+    if (this.isOnline && token && refreshToken) {
       setTimeout(() => this.sync(), 1000);
     }
   }
 
   private async refreshTaskStore() {
-    const tasks = await database
-      .get<TaskModel>('tasks')
-      .query()
-      .fetch();
+    const tasks = await database.get<TaskModel>('tasks').query().fetch();
 
     const mappedTasks = tasks.map((task) => ({
       id: task.id,
