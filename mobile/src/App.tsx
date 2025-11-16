@@ -9,6 +9,8 @@ import { syncService } from '@/services/syncService';
 import { authService } from '@/services/authService';
 import { notificationService } from '@/services/notificationService';
 import { locationService } from '@/services/locationService';
+import { smartTaskService } from '@/services/smartTaskService';
+import { locationTaskService } from '@/services/locationTaskService';
 
 export default function App() {
   const { colorScheme } = useThemeStore();
@@ -39,6 +41,10 @@ export default function App() {
 
       // Request location permissions
       await locationService.requestPermissions();
+
+      // Initialize smart task services
+      await smartTaskService.initialize();
+      await locationTaskService.initialize();
 
       // Sync service will be initialized by the useEffect above when tokens are ready
     } catch (error) {
