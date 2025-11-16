@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Alert, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, Alert, ScrollView, TouchableOpacity, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker, Region, Polyline } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
+import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
 import { useThemeStore } from '@/store/themeStore';
 import { useTaskStore } from '@/store/taskStore';
 import { getTheme } from '@/theme';
@@ -27,6 +29,7 @@ export default function MapScreen() {
   const [sortedTasks, setSortedTasks] = useState<Task[]>([]);
   const [showRoute, setShowRoute] = useState(false);
   const [optimizedRoute, setOptimizedRoute] = useState<Task[]>([]);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   const tasksWithLocation = tasks.filter(t => t.location && !t.completed);
 
@@ -46,12 +49,12 @@ export default function MapScreen() {
       const hasPermission = await locationService.requestPermissions();
 
       if (!hasPermission) {
+        setLoadingLocation(false);
         Alert.alert(
           'Permission requise',
           'Veuillez activer la localisation pour voir votre position sur la carte.',
           [{ text: 'OK' }]
         );
-        setLoadingLocation(false);
         return;
       }
 
@@ -70,21 +73,23 @@ export default function MapScreen() {
         };
 
         setRegion(newRegion);
+        setLoadingLocation(false);
 
         // Animate to user location
         if (mapRef.current) {
           mapRef.current.animateToRegion(newRegion, 1000);
         }
+      } else {
+        setLoadingLocation(false);
       }
     } catch (error) {
       console.error('Error getting user location:', error);
+      setLoadingLocation(false);
       Alert.alert(
         'Erreur',
         'Impossible de récupérer votre position. Vérifiez que la localisation est activée.',
         [{ text: 'OK' }]
       );
-    } finally {
-      setLoadingLocation(false);
     }
   }
 
@@ -189,6 +194,7 @@ export default function MapScreen() {
             title={task.title}
             description={`${task.description || ''} ${calculateDistance(task)}`}
             pinColor={getMarkerColor(task)}
+            onPress={() => setSelectedTask(task)}
           >
             {showRoute && optimizedRoute.includes(task) && (
               <View style={styles.markerLabel}>
@@ -216,8 +222,68 @@ export default function MapScreen() {
         )}
       </MapView>
 
+      {/* Selected Task Details */}
+      {selectedTask && selectedTask.location && (
+        <View style={[styles.taskDetailSheet, { backgroundColor: theme.colors.surface }]}>
+          <View style={[styles.sheetHandle, { backgroundColor: theme.colors.border }]} />
+
+          <View style={styles.taskDetailHeader}>
+            <View style={styles.taskDetailHeaderLeft}>
+              <View style={[styles.priorityDot, { backgroundColor: getMarkerColor(selectedTask) }]} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.taskDetailTitle, { color: theme.colors.text }]} numberOfLines={2}>
+                  {selectedTask.title}
+                </Text>
+                <Text style={[styles.taskDetailLocation, { color: theme.colors.textSecondary }]}>
+                  {selectedTask.location.name} • {calculateDistance(selectedTask)}
+                </Text>
+              </View>
+            </View>
+            <TouchableOpacity onPress={() => setSelectedTask(null)}>
+              <Ionicons name="close" size={24} color={theme.colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+
+          {selectedTask.startDate && (
+            <View style={styles.taskDetailMeta}>
+              <Ionicons name="time-outline" size={16} color={theme.colors.textSecondary} />
+              <Text style={[styles.taskDetailMetaText, { color: theme.colors.textSecondary }]}>
+                {format(selectedTask.startDate, "dd MMM 'à' HH:mm", { locale: fr })}
+              </Text>
+            </View>
+          )}
+
+          <View style={styles.taskDetailActions}>
+            <TouchableOpacity
+              style={[styles.actionButton, { backgroundColor: theme.colors.primary }]}
+              onPress={() => {
+                // Navigate to the location
+                const url = `https://www.google.com/maps/dir/?api=1&destination=${selectedTask.location!.latitude},${selectedTask.location!.longitude}`;
+                Linking.openURL(url).catch(() =>
+                  Alert.alert('Erreur', 'Impossible d\'ouvrir l\'itinéraire')
+                );
+              }}
+            >
+              <Ionicons name="navigate" size={20} color="#fff" />
+              <Text style={styles.actionButtonText}>Y aller</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.actionButtonSecondary, { borderColor: theme.colors.border, backgroundColor: theme.colors.background }]}
+              onPress={() => {
+                setSelectedTask(null);
+                // Navigate to task detail screen would go here
+              }}
+            >
+              <Ionicons name="information-circle-outline" size={20} color={theme.colors.text} />
+              <Text style={[styles.actionButtonSecondaryText, { color: theme.colors.text }]}>Détails</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
       {/* Nearby tasks list */}
-      {sortedTasks.length > 0 && (
+      {!selectedTask && sortedTasks.length > 0 && (
         <View style={[styles.taskList, { backgroundColor: theme.colors.surface }]}>
           <View style={styles.taskListHeader}>
             <Ionicons name="location" size={20} color={theme.colors.primary} />
@@ -227,7 +293,21 @@ export default function MapScreen() {
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.taskListContent}>
             {sortedTasks.map((task) => task.location && (
-              <View key={task.id} style={[styles.taskCard, { backgroundColor: theme.colors.background, borderColor: theme.colors.border }]}>
+              <TouchableOpacity
+                key={task.id}
+                style={[styles.taskCard, { backgroundColor: theme.colors.background, borderColor: theme.colors.border }]}
+                onPress={() => {
+                  setSelectedTask(task);
+                  if (mapRef.current && task.location) {
+                    mapRef.current.animateToRegion({
+                      latitude: task.location.latitude,
+                      longitude: task.location.longitude,
+                      latitudeDelta: 0.01,
+                      longitudeDelta: 0.01,
+                    }, 500);
+                  }
+                }}
+              >
                 <View style={styles.taskCardHeader}>
                   <View style={[styles.priorityDot, { backgroundColor: getMarkerColor(task) }]} />
                   <Text style={[styles.taskTitle, { color: theme.colors.text }]} numberOfLines={2}>
@@ -246,7 +326,7 @@ export default function MapScreen() {
                     {calculateDistance(task)}
                   </Text>
                 </View>
-              </View>
+              </TouchableOpacity>
             ))}
           </ScrollView>
         </View>
@@ -281,15 +361,17 @@ const styles = StyleSheet.create({
   map: { flex: 1 },
   loadingOverlay: {
     position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: [{ translateX: -75 }, { translateY: -50 }],
+    top: '40%',
+    left: 0,
+    right: 0,
     zIndex: 10,
     padding: 20,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 150,
+    alignSelf: 'center',
+    minWidth: 200,
+    maxWidth: 250,
   },
   loadingText: {
     marginTop: 12,
@@ -309,6 +391,90 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#3B82F6',
+  },
+  taskDetailSheet: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 8,
+    paddingBottom: 24,
+    paddingHorizontal: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  taskDetailHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  taskDetailHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    flex: 1,
+  },
+  taskDetailTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  taskDetailLocation: {
+    fontSize: 14,
+  },
+  taskDetailMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 16,
+  },
+  taskDetailMetaText: {
+    fontSize: 14,
+  },
+  taskDetailActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
+  },
+  actionButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  actionButtonSecondary: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 2,
+  },
+  actionButtonSecondaryText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   taskList: {
     position: 'absolute',

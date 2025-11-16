@@ -32,6 +32,7 @@ interface SmartPrompt {
   icon: string;
   suggestions: string[];
   contextKey: string; // The keyword to enrich (e.g., "salle")
+  alwaysAsk?: boolean; // If true, don't save the enrichment
 }
 
 class SmartTaskService {
@@ -43,6 +44,7 @@ class SmartTaskService {
   private readonly MIN_SIMILARITY_SCORE = 0.6;
 
   // Patterns that need clarification
+  // Note: patterns marked as 'alwaysAsk: true' will ALWAYS ask, never save the answer
   private readonly ambiguousPatterns = [
     {
       keywords: ['salle', 'gym', 'fitness'],
@@ -50,6 +52,7 @@ class SmartTaskService {
       placeholder: 'Ex: Basic Fit, Fitness Park...',
       icon: 'fitness',
       suggestions: ['Basic Fit', 'Fitness Park', 'Keep Cool', 'L\'Orange Bleue'],
+      alwaysAsk: false,
     },
     {
       keywords: ['magasin', 'supermarché', 'courses'],
@@ -57,6 +60,7 @@ class SmartTaskService {
       placeholder: 'Ex: Carrefour, Auchan...',
       icon: 'cart',
       suggestions: ['Carrefour', 'Auchan', 'Leclerc', 'Monoprix', 'Lidl'],
+      alwaysAsk: false,
     },
     {
       keywords: ['restaurant', 'resto', 'manger'],
@@ -64,6 +68,7 @@ class SmartTaskService {
       placeholder: 'Ex: Le Petit Bistrot...',
       icon: 'restaurant',
       suggestions: [],
+      alwaysAsk: true, // Always ask for restaurant name, don't save it
     },
     {
       keywords: ['médecin', 'docteur'],
@@ -71,6 +76,7 @@ class SmartTaskService {
       placeholder: 'Ex: Dr. Martin...',
       icon: 'medical',
       suggestions: [],
+      alwaysAsk: false,
     },
     {
       keywords: ['coiffeur', 'coiffeuse'],
@@ -78,6 +84,7 @@ class SmartTaskService {
       placeholder: 'Ex: Jean Louis David...',
       icon: 'cut',
       suggestions: ['Jean Louis David', 'Franck Provost', 'Dessange'],
+      alwaysAsk: false,
     },
     {
       keywords: ['gare', 'train'],
@@ -85,6 +92,7 @@ class SmartTaskService {
       placeholder: 'Ex: Gare du Nord...',
       icon: 'train',
       suggestions: [],
+      alwaysAsk: false,
     },
     {
       keywords: ['aéroport', 'avion', 'vol'],
@@ -92,6 +100,7 @@ class SmartTaskService {
       placeholder: 'Ex: Charles de Gaulle...',
       icon: 'airplane',
       suggestions: ['Charles de Gaulle', 'Orly', 'Beauvais'],
+      alwaysAsk: false,
     },
   ];
 
@@ -156,6 +165,18 @@ class SmartTaskService {
     for (const pattern of this.ambiguousPatterns) {
       for (const keyword of pattern.keywords) {
         if (lowerTitle.includes(keyword)) {
+          // If pattern is marked as "alwaysAsk", always show the prompt
+          if ((pattern as any).alwaysAsk) {
+            return {
+              question: pattern.question,
+              placeholder: pattern.placeholder,
+              icon: pattern.icon as any,
+              suggestions: pattern.suggestions,
+              contextKey: keyword,
+              alwaysAsk: true,
+            };
+          }
+
           // Check if we already have this enrichment
           const existingEnrichment = this.enrichments.get(keyword);
           if (existingEnrichment) {
@@ -169,6 +190,7 @@ class SmartTaskService {
             icon: pattern.icon as any,
             suggestions: pattern.suggestions,
             contextKey: keyword,
+            alwaysAsk: false,
           };
         }
       }

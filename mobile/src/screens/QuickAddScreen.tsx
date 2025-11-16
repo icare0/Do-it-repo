@@ -84,13 +84,22 @@ export default function QuickAddScreen() {
 
   async function handleSmartPromptSubmit(answer: string) {
     if (currentPrompt) {
-      // Save the enrichment
-      await smartTaskService.saveEnrichment(currentPrompt.contextKey, answer);
+      // Only save the enrichment if it's not marked as "alwaysAsk"
+      if (!currentPrompt.alwaysAsk) {
+        await smartTaskService.saveEnrichment(currentPrompt.contextKey, answer);
 
-      // Show a subtle confirmation
-      Alert.alert('✨ Parfait !', `Je me souviendrai que "${currentPrompt.contextKey}" = "${answer}"`, [
-        { text: 'OK', style: 'default' },
-      ]);
+        // Show a subtle confirmation only if we're saving it
+        Alert.alert('✨ Parfait !', `Je me souviendrai que "${currentPrompt.contextKey}" = "${answer}"`, [
+          { text: 'OK', style: 'default' },
+        ]);
+      }
+
+      // For "alwaysAsk" prompts, use the answer directly in the title
+      if (currentPrompt.alwaysAsk && parsedTask) {
+        // Replace the generic keyword with the specific answer
+        const regex = new RegExp(`\\b${currentPrompt.contextKey}\\b`, 'gi');
+        parsedTask.title = parsedTask.title.replace(regex, answer);
+      }
     }
 
     setShowSmartPrompt(false);
@@ -98,7 +107,7 @@ export default function QuickAddScreen() {
 
     // Re-parse and enrich the title
     const { enrichedTitle } = smartTaskService.enrichTaskTitle(input);
-    if (parsedTask) {
+    if (parsedTask && !currentPrompt?.alwaysAsk) {
       parsedTask.title = smartTaskService.enrichTaskTitle(parsedTask.title).enrichedTitle;
     }
 

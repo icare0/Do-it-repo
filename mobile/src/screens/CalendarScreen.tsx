@@ -5,7 +5,7 @@ import { Calendar } from 'react-native-calendars';
 import { useThemeStore } from '@/store/themeStore';
 import { useTaskStore } from '@/store/taskStore';
 import { getTheme } from '@/theme';
-import { Button } from '@/components/ui/Button';
+import { Ionicons } from '@expo/vector-icons';
 import { calendarService } from '@/services/calendarService';
 
 export default function CalendarScreen() {
@@ -83,20 +83,19 @@ export default function CalendarScreen() {
           }}
         />
 
-        <Button
-          title="Synchroniser avec le calendrier"
-          onPress={handleSync}
-          loading={syncing}
-          disabled={syncing || tasks.filter(t => t.startDate).length === 0}
-          fullWidth
-          style={{ marginTop: 24 }}
-        />
-
-        {tasks.filter(t => t.startDate).length === 0 && (
-          <Text style={[styles.infoText, { color: theme.colors.textSecondary }]}>
-            Aucune tâche avec date à synchroniser
-          </Text>
-        )}
+        <View style={[styles.infoCard, { backgroundColor: `${theme.colors.primary}08`, borderColor: `${theme.colors.primary}30` }]}>
+          <Ionicons name="information-circle" size={24} color={theme.colors.primary} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.infoTitle, { color: theme.colors.text }]}>
+              Synchronisation automatique
+            </Text>
+            <Text style={[styles.infoDescription, { color: theme.colors.textSecondary }]}>
+              {tasks.filter(t => t.startDate).length > 0
+                ? `${tasks.filter(t => t.startDate).length} tâche(s) avec date disponible(s)`
+                : 'Aucune tâche avec date pour le moment'}
+            </Text>
+          </View>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -111,5 +110,22 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 14,
     textAlign: 'center',
+  },
+  infoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginTop: 24,
+  },
+  infoTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  infoDescription: {
+    fontSize: 13,
   },
 });
