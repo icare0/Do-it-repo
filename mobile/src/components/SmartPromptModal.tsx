@@ -10,7 +10,6 @@ import {
   Platform,
   Animated,
 } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeStore } from '@/store/themeStore';
 import { getTheme } from '@/theme';
@@ -81,12 +80,10 @@ export function SmartPromptModal({
         style={styles.container}
       >
         <TouchableOpacity
-          style={styles.backdrop}
+          style={[styles.backdrop, { backgroundColor: colorScheme === 'dark' ? 'rgba(0, 0, 0, 0.7)' : 'rgba(0, 0, 0, 0.5)' }]}
           activeOpacity={1}
           onPress={onDismiss}
-        >
-          <BlurView intensity={20} style={StyleSheet.absoluteFill} />
-        </TouchableOpacity>
+        />
 
         <Animated.View
           style={[
