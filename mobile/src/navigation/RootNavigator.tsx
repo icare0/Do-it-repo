@@ -20,6 +20,8 @@ import QuickAddScreen from '@/screens/QuickAddScreen';
 import MapScreen from '@/screens/MapScreen';
 import CalendarScreen from '@/screens/CalendarScreen';
 import SettingsScreen from '@/screens/SettingsScreen';
+import NotificationsScreen from '@/screens/NotificationsScreen';
+import OnboardingScreen, { isOnboardingCompleted } from '@/screens/OnboardingScreen';
 
 import { RootStackParamList } from '@/types';
 
@@ -107,13 +109,34 @@ export default function RootNavigator() {
   const { isAuthenticated, isLoading } = useAuthStore();
   const { colorScheme } = useThemeStore();
   const theme = getTheme(colorScheme);
+  const [showOnboarding, setShowOnboarding] = useState(true);
+  const [checkingOnboarding, setCheckingOnboarding] = useState(true);
 
-  if (isLoading) {
+  useEffect(() => {
+    checkOnboardingStatus();
+  }, []);
+
+  async function checkOnboardingStatus() {
+    const completed = await isOnboardingCompleted();
+    setShowOnboarding(!completed);
+    setCheckingOnboarding(false);
+  }
+
+  function handleOnboardingComplete() {
+    setShowOnboarding(false);
+  }
+
+  if (isLoading || checkingOnboarding) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.background }}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>
     );
+  }
+
+  // Show onboarding if not completed
+  if (showOnboarding) {
+    return <OnboardingScreen onComplete={handleOnboardingComplete} />;
   }
 
   return (
@@ -143,6 +166,14 @@ export default function RootNavigator() {
             <Stack.Screen
               name="TaskDetail"
               component={TaskDetailScreen}
+              options={{
+                presentation: 'modal',
+                animation: 'slide_from_right',
+              }}
+            />
+            <Stack.Screen
+              name="Notifications"
+              component={NotificationsScreen}
               options={{
                 presentation: 'modal',
                 animation: 'slide_from_right',
