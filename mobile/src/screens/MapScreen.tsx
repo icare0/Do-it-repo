@@ -44,7 +44,7 @@ export default function MapScreen() {
       }
 
       // Get current position
-      const position = await locationService.getCurrentPosition();
+      const position = await locationService.getCurrentLocation();
 
       if (position) {
         const { latitude, longitude } = position.coords;
