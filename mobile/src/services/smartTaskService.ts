@@ -15,17 +15,89 @@ interface UserPreference {
   defaultLocation?: Location;
   defaultCategory?: string;
   defaultDuration?: number;
-  frequency: number; // How many times user created this type of task
+  frequency: number;
+}
+
+interface ContextualEnrichment {
+  keyword: string; // ex: "salle", "magasin", "restaurant"
+  specificValue: string; // ex: "Basic Fit", "Carrefour", "Le Petit Bistrot"
+  location?: Location;
+  usageCount: number;
+  lastUsed: Date;
+}
+
+interface SmartPrompt {
+  question: string;
+  placeholder: string;
+  icon: string;
+  suggestions: string[];
+  contextKey: string; // The keyword to enrich (e.g., "salle")
 }
 
 class SmartTaskService {
   private contextCache: Map<string, TaskContext> = new Map();
   private userPreferences: Map<string, UserPreference> = new Map();
+  private enrichments: Map<string, ContextualEnrichment> = new Map();
   private readonly STORAGE_KEY = 'smart_task_preferences';
+  private readonly ENRICHMENTS_KEY = 'contextual_enrichments';
   private readonly MIN_SIMILARITY_SCORE = 0.6;
+
+  // Patterns that need clarification
+  private readonly ambiguousPatterns = [
+    {
+      keywords: ['salle', 'gym', 'fitness'],
+      question: 'À quelle salle de sport allez-vous ?',
+      placeholder: 'Ex: Basic Fit, Fitness Park...',
+      icon: 'fitness',
+      suggestions: ['Basic Fit', 'Fitness Park', 'Keep Cool', 'L\'Orange Bleue'],
+    },
+    {
+      keywords: ['magasin', 'supermarché', 'courses'],
+      question: 'Dans quel magasin préférez-vous faire vos courses ?',
+      placeholder: 'Ex: Carrefour, Auchan...',
+      icon: 'cart',
+      suggestions: ['Carrefour', 'Auchan', 'Leclerc', 'Monoprix', 'Lidl'],
+    },
+    {
+      keywords: ['restaurant', 'resto', 'manger'],
+      question: 'Quel est le nom du restaurant ?',
+      placeholder: 'Ex: Le Petit Bistrot...',
+      icon: 'restaurant',
+      suggestions: [],
+    },
+    {
+      keywords: ['médecin', 'docteur'],
+      question: 'Quel est le nom de votre médecin ?',
+      placeholder: 'Ex: Dr. Martin...',
+      icon: 'medical',
+      suggestions: [],
+    },
+    {
+      keywords: ['coiffeur', 'coiffeuse'],
+      question: 'Quel est le nom de votre salon de coiffure ?',
+      placeholder: 'Ex: Jean Louis David...',
+      icon: 'cut',
+      suggestions: ['Jean Louis David', 'Franck Provost', 'Dessange'],
+    },
+    {
+      keywords: ['gare', 'train'],
+      question: 'À quelle gare ?',
+      placeholder: 'Ex: Gare du Nord...',
+      icon: 'train',
+      suggestions: [],
+    },
+    {
+      keywords: ['aéroport', 'avion', 'vol'],
+      question: 'Quel aéroport ?',
+      placeholder: 'Ex: Charles de Gaulle...',
+      icon: 'airplane',
+      suggestions: ['Charles de Gaulle', 'Orly', 'Beauvais'],
+    },
+  ];
 
   async initialize() {
     await this.loadPreferences();
+    await this.loadEnrichments();
   }
 
   private async loadPreferences() {
@@ -47,6 +119,131 @@ class SmartTaskService {
     } catch (error) {
       console.error('Error saving smart task preferences:', error);
     }
+  }
+
+  private async loadEnrichments() {
+    try {
+      const stored = await AsyncStorage.getItem(this.ENRICHMENTS_KEY);
+      if (stored) {
+        const enrichments = JSON.parse(stored);
+        this.enrichments = new Map(
+          Object.entries(enrichments).map(([k, v]: [string, any]) => [
+            k,
+            { ...v, lastUsed: new Date(v.lastUsed) },
+          ])
+        );
+      }
+    } catch (error) {
+      console.error('Error loading enrichments:', error);
+    }
+  }
+
+  private async saveEnrichments() {
+    try {
+      const enrichments = Object.fromEntries(this.enrichments);
+      await AsyncStorage.setItem(this.ENRICHMENTS_KEY, JSON.stringify(enrichments));
+    } catch (error) {
+      console.error('Error saving enrichments:', error);
+    }
+  }
+
+  /**
+   * Detect if a task needs contextual clarification
+   */
+  detectSmartPrompt(taskTitle: string): SmartPrompt | null {
+    const lowerTitle = taskTitle.toLowerCase();
+
+    for (const pattern of this.ambiguousPatterns) {
+      for (const keyword of pattern.keywords) {
+        if (lowerTitle.includes(keyword)) {
+          // Check if we already have this enrichment
+          const existingEnrichment = this.enrichments.get(keyword);
+          if (existingEnrichment) {
+            // Don't ask again, we already know
+            return null;
+          }
+
+          return {
+            question: pattern.question,
+            placeholder: pattern.placeholder,
+            icon: pattern.icon as any,
+            suggestions: pattern.suggestions,
+            contextKey: keyword,
+          };
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Save a contextual enrichment from user's answer
+   */
+  async saveEnrichment(contextKey: string, specificValue: string, location?: Location) {
+    const enrichment: ContextualEnrichment = {
+      keyword: contextKey,
+      specificValue,
+      location,
+      usageCount: 1,
+      lastUsed: new Date(),
+    };
+
+    this.enrichments.set(contextKey, enrichment);
+    await this.saveEnrichments();
+  }
+
+  /**
+   * Enrich a task title with learned context
+   */
+  enrichTaskTitle(taskTitle: string): {
+    enrichedTitle: string;
+    location?: Location;
+    wasEnriched: boolean;
+  } {
+    const lowerTitle = taskTitle.toLowerCase();
+    let enrichedTitle = taskTitle;
+    let location: Location | undefined;
+    let wasEnriched = false;
+
+    for (const [keyword, enrichment] of this.enrichments) {
+      if (lowerTitle.includes(keyword)) {
+        // Replace generic keyword with specific value
+        const regex = new RegExp(`\\b${keyword}\\b`, 'gi');
+        enrichedTitle = enrichedTitle.replace(regex, enrichment.specificValue);
+
+        if (enrichment.location) {
+          location = enrichment.location;
+        }
+
+        // Update usage
+        enrichment.usageCount++;
+        enrichment.lastUsed = new Date();
+        wasEnriched = true;
+      }
+    }
+
+    if (wasEnriched) {
+      this.saveEnrichments();
+    }
+
+    return { enrichedTitle, location, wasEnriched };
+  }
+
+  /**
+   * Get all learned enrichments for display
+   */
+  getLearnedContexts(): ContextualEnrichment[] {
+    return Array.from(this.enrichments.values())
+      .sort((a, b) => b.usageCount - a.usageCount);
+  }
+
+  /**
+   * Delete a learned context
+   */
+  async deleteEnrichment(keyword: string) {
+    this.enrichments.delete(keyword);
+    await this.saveEnrichments();
   }
 
   /**
@@ -95,10 +292,20 @@ class SmartTaskService {
     const suggestions: any = {};
     const questions: string[] = [];
 
+    // Check enrichments first
+    for (const [keyword, enrichment] of this.enrichments) {
+      if (input.toLowerCase().includes(keyword)) {
+        if (enrichment.location) {
+          suggestions.location = enrichment.location;
+        }
+      }
+    }
+
+    // Check preferences
     for (const keyword of keywords) {
       const pref = this.userPreferences.get(keyword);
       if (pref) {
-        if (pref.defaultLocation) {
+        if (pref.defaultLocation && !suggestions.location) {
           suggestions.location = pref.defaultLocation;
         }
         if (pref.defaultCategory && !suggestions.category) {
@@ -108,19 +315,6 @@ class SmartTaskService {
           suggestions.duration = pref.defaultDuration;
         }
       }
-    }
-
-    // Generate contextual questions
-    if (input.toLowerCase().includes('sport') || input.toLowerCase().includes('salle')) {
-      questions.push('À quelle salle de sport allez-vous ?');
-    }
-
-    if (input.toLowerCase().includes('acheter') && !input.toLowerCase().includes('où')) {
-      questions.push('Dans quel magasin préférez-vous faire vos courses ?');
-    }
-
-    if (input.toLowerCase().includes('rdv') || input.toLowerCase().includes('rendez-vous')) {
-      questions.push('Où se trouve le rendez-vous ?');
     }
 
     suggestions.questions = questions;
@@ -189,9 +383,9 @@ class SmartTaskService {
         task2.location.longitude
       );
 
-      if (distance < 0.5) { // Within 500m
+      if (distance < 0.5) {
         score += 0.3;
-      } else if (distance < 2) { // Within 2km
+      } else if (distance < 2) {
         score += 0.15;
       }
     }
@@ -214,7 +408,6 @@ class SmartTaskService {
 
     const tasksWithLocation = tasks.filter(t => t.location && !t.completed);
 
-    // Calculate distance and sort
     const tasksWithDistance = tasksWithLocation.map(task => {
       const distance = locationService.calculateDistance(
         currentLocation!.latitude,
@@ -226,7 +419,6 @@ class SmartTaskService {
       return { task, distance };
     });
 
-    // Sort by distance and return tasks within 5km
     return tasksWithDistance
       .filter(t => t.distance < 5)
       .sort((a, b) => a.distance - b.distance)
@@ -234,28 +426,10 @@ class SmartTaskService {
   }
 
   /**
-   * Extract meaningful keywords from task title
-   */
-  private extractKeywords(text: string): string[] {
-    const stopWords = new Set([
-      'le', 'la', 'les', 'un', 'une', 'des', 'de', 'du', 'à', 'au', 'aux',
-      'et', 'ou', 'pour', 'avec', 'dans', 'sur', 'ce', 'cette', 'ces',
-      'mon', 'ma', 'mes', 'ton', 'ta', 'tes', 'son', 'sa', 'ses',
-    ]);
-
-    return text
-      .toLowerCase()
-      .replace(/[^\w\s]/g, ' ')
-      .split(/\s+/)
-      .filter(word => word.length > 2 && !stopWords.has(word))
-      .slice(0, 5); // Take top 5 keywords
-  }
-
-  /**
    * Check if user has been at a task location for a while and suggest completion
    */
   async checkTaskCompletion(tasks: Task[], currentLocation: { latitude: number; longitude: number }): Promise<Task | null> {
-    const PROXIMITY_THRESHOLD = 0.1; // 100 meters
+    const PROXIMITY_THRESHOLD = 0.1;
 
     for (const task of tasks) {
       if (task.completed || !task.location) continue;
@@ -303,6 +477,24 @@ class SmartTaskService {
     }
 
     return null;
+  }
+
+  /**
+   * Extract meaningful keywords from task title
+   */
+  private extractKeywords(text: string): string[] {
+    const stopWords = new Set([
+      'le', 'la', 'les', 'un', 'une', 'des', 'de', 'du', 'à', 'au', 'aux',
+      'et', 'ou', 'pour', 'avec', 'dans', 'sur', 'ce', 'cette', 'ces',
+      'mon', 'ma', 'mes', 'ton', 'ta', 'tes', 'son', 'sa', 'ses',
+    ]);
+
+    return text
+      .toLowerCase()
+      .replace(/[^\w\s]/g, ' ')
+      .split(/\s+/)
+      .filter(word => word.length > 2 && !stopWords.has(word))
+      .slice(0, 5);
   }
 }
 

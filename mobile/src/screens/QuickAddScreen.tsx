@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TextInput,
   ScrollView,
-  TouchableOpacity,
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,11 +16,13 @@ import { fr } from 'date-fns/locale';
 import { Button } from '@/components/ui/Button';
 import { IconButton } from '@/components/ui/IconButton';
 import { Badge } from '@/components/ui/Badge';
+import { SmartPromptModal } from '@/components/SmartPromptModal';
 import { useThemeStore } from '@/store/themeStore';
 import { useTaskStore } from '@/store/taskStore';
 import { useAuthStore } from '@/store/authStore';
 import { getTheme } from '@/theme';
 import { nlpService } from '@/services/nlpService';
+import { smartTaskService } from '@/services/smartTaskService';
 import { database, TaskModel } from '@/database';
 import { syncService } from '@/services/syncService';
 
@@ -35,13 +36,29 @@ export default function QuickAddScreen() {
   const [input, setInput] = useState('');
   const [parsedTask, setParsedTask] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [showSmartPrompt, setShowSmartPrompt] = useState(false);
+  const [currentPrompt, setCurrentPrompt] = useState<any>(null);
+  const [enrichedTitle, setEnrichedTitle] = useState('');
 
   useEffect(() => {
     if (input.length > 3) {
       const parsed = nlpService.parseQuickAdd(input);
+
+      // Check if we can enrich the title automatically
+      const { enrichedTitle: autoEnriched, wasEnriched } = smartTaskService.enrichTaskTitle(input);
+
+      if (wasEnriched) {
+        // Use the enriched title
+        parsed.title = smartTaskService.enrichTaskTitle(parsed.title).enrichedTitle;
+        setEnrichedTitle(autoEnriched);
+      } else {
+        setEnrichedTitle('');
+      }
+
       setParsedTask(parsed);
     } else {
       setParsedTask(null);
+      setEnrichedTitle('');
     }
   }, [input]);
 
@@ -53,15 +70,63 @@ export default function QuickAddScreen() {
 
     if (!user) return;
 
+    // Check if we need to ask a smart question
+    const smartPrompt = smartTaskService.detectSmartPrompt(input);
+    if (smartPrompt) {
+      setCurrentPrompt(smartPrompt);
+      setShowSmartPrompt(true);
+      return;
+    }
+
+    // Proceed with task creation
+    await createTask();
+  }
+
+  async function handleSmartPromptSubmit(answer: string) {
+    if (currentPrompt) {
+      // Save the enrichment
+      await smartTaskService.saveEnrichment(currentPrompt.contextKey, answer);
+
+      // Show a subtle confirmation
+      Alert.alert('✨ Parfait !', `Je me souviendrai que "${currentPrompt.contextKey}" = "${answer}"`, [
+        { text: 'OK', style: 'default' },
+      ]);
+    }
+
+    setShowSmartPrompt(false);
+    setCurrentPrompt(null);
+
+    // Re-parse and enrich the title
+    const { enrichedTitle } = smartTaskService.enrichTaskTitle(input);
+    if (parsedTask) {
+      parsedTask.title = smartTaskService.enrichTaskTitle(parsedTask.title).enrichedTitle;
+    }
+
+    // Create the task
+    await createTask();
+  }
+
+  async function createTask() {
     try {
       setLoading(true);
 
       const taskData = parsedTask || { title: input };
 
+      // Final enrichment before saving
+      const { enrichedTitle: finalTitle, location: enrichedLocation } =
+        smartTaskService.enrichTaskTitle(taskData.title);
+
+      taskData.title = finalTitle;
+
+      // Use enriched location if available
+      if (enrichedLocation && !taskData.location) {
+        taskData.location = enrichedLocation;
+      }
+
       // Create task in local database
       const newTask = await database.write(async () => {
         return await database.get<TaskModel>('tasks').create((task) => {
-          task.userId = user.id;
+          task.userId = user!.id;
           task.title = taskData.title;
           task.priority = taskData.priority || 'medium';
           task.completed = false;
@@ -78,13 +143,17 @@ export default function QuickAddScreen() {
           if (taskData.recurringPattern) {
             task.recurringPattern = taskData.recurringPattern;
           }
+
+          if (taskData.location) {
+            task.location = taskData.location;
+          }
         });
       });
 
       // Add to store
       addTask({
         id: newTask.id,
-        userId: user.id,
+        userId: user!.id,
         title: taskData.title,
         completed: false,
         priority: taskData.priority || 'medium',
@@ -92,19 +161,37 @@ export default function QuickAddScreen() {
         startDate: taskData.date,
         duration: taskData.duration,
         recurringPattern: taskData.recurringPattern,
+        location: taskData.location,
         createdAt: new Date(),
         updatedAt: new Date(),
       });
 
-      // Add to sync queue AFTER the write is complete to avoid nested writes
+      // Add to sync queue
       await syncService.addToSyncQueue('task', newTask.id, 'create', {
-        userId: user.id,
+        userId: user!.id,
         title: taskData.title,
         priority: taskData.priority || 'medium',
         category: taskData.category,
         startDate: taskData.date,
         duration: taskData.duration,
         recurringPattern: taskData.recurringPattern,
+        location: taskData.location,
+      });
+
+      // Learn from this task
+      await smartTaskService.learnFromTask({
+        id: newTask.id,
+        userId: user!.id,
+        title: taskData.title,
+        completed: false,
+        priority: taskData.priority || 'medium',
+        category: taskData.category,
+        startDate: taskData.date,
+        duration: taskData.duration,
+        recurringPattern: taskData.recurringPattern,
+        location: taskData.location,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       });
 
       navigation.goBack();
@@ -142,6 +229,16 @@ export default function QuickAddScreen() {
             autoFocus
           />
         </View>
+
+        {/* Enrichment Banner */}
+        {enrichedTitle && (
+          <View style={[styles.enrichmentBanner, { backgroundColor: `${theme.colors.success}15`, borderColor: theme.colors.success }]}>
+            <Ionicons name="sparkles" size={20} color={theme.colors.success} />
+            <Text style={[styles.enrichmentText, { color: theme.colors.success }]}>
+              Titre enrichi : "{enrichedTitle}"
+            </Text>
+          </View>
+        )}
 
         {/* NLP Parsing Result */}
         {parsedTask && (
@@ -213,52 +310,43 @@ export default function QuickAddScreen() {
               </Text>
             </View>
             <Text style={[styles.helpDescription, { color: theme.colors.textSecondary }]}>
-              Décrivez simplement votre tâche et l'application détectera automatiquement les dates, heures, lieux, catégories et priorités.
+              Décrivez simplement votre tâche. L'app apprend de vos habitudes et enrichit automatiquement vos tâches !
             </Text>
 
             <View style={styles.examplesContainer}>
               <View style={styles.exampleItem}>
                 <View style={[styles.exampleBadge, { backgroundColor: `${theme.colors.primary}15` }]}>
-                  <Ionicons name="calendar-outline" size={14} color={theme.colors.primary} />
+                  <Ionicons name="fitness" size={14} color={theme.colors.primary} />
                 </View>
                 <Text style={[styles.exampleText, { color: theme.colors.text }]}>
-                  "Réunion équipe demain à 15h30"
+                  "Sport à la salle demain"
                 </Text>
               </View>
 
               <View style={styles.exampleItem}>
                 <View style={[styles.exampleBadge, { backgroundColor: `${theme.colors.primary}15` }]}>
-                  <Ionicons name="pricetag-outline" size={14} color={theme.colors.primary} />
+                  <Ionicons name="cart" size={14} color={theme.colors.primary} />
                 </View>
                 <Text style={[styles.exampleText, { color: theme.colors.text }]}>
-                  "Acheter pain et lait #courses"
+                  "Acheter du pain au magasin"
                 </Text>
               </View>
 
               <View style={styles.exampleItem}>
                 <View style={[styles.exampleBadge, { backgroundColor: `${theme.colors.primary}15` }]}>
-                  <Ionicons name="alert-circle-outline" size={14} color={theme.colors.primary} />
+                  <Ionicons name="restaurant" size={14} color={theme.colors.primary} />
                 </View>
                 <Text style={[styles.exampleText, { color: theme.colors.text }]}>
-                  "Finir rapport urgent projet #travail"
+                  "Déjeuner au restaurant ce soir"
                 </Text>
               </View>
 
               <View style={styles.exampleItem}>
                 <View style={[styles.exampleBadge, { backgroundColor: `${theme.colors.primary}15` }]}>
-                  <Ionicons name="fitness-outline" size={14} color={theme.colors.primary} />
+                  <Ionicons name="repeat" size={14} color={theme.colors.primary} />
                 </View>
                 <Text style={[styles.exampleText, { color: theme.colors.text }]}>
-                  "Séance sport 1h après-demain #sport"
-                </Text>
-              </View>
-
-              <View style={styles.exampleItem}>
-                <View style={[styles.exampleBadge, { backgroundColor: `${theme.colors.primary}15` }]}>
-                  <Ionicons name="medkit-outline" size={14} color={theme.colors.primary} />
-                </View>
-                <Text style={[styles.exampleText, { color: theme.colors.text }]}>
-                  "RDV dentiste 15/03 à 10h #personnel"
+                  "Réunion équipe tous les lundis à 10h"
                 </Text>
               </View>
             </View>
@@ -276,6 +364,22 @@ export default function QuickAddScreen() {
           fullWidth
         />
       </View>
+
+      {/* Smart Prompt Modal */}
+      {currentPrompt && (
+        <SmartPromptModal
+          visible={showSmartPrompt}
+          question={currentPrompt.question}
+          placeholder={currentPrompt.placeholder}
+          icon={currentPrompt.icon}
+          suggestions={currentPrompt.suggestions}
+          onSubmit={handleSmartPromptSubmit}
+          onDismiss={() => {
+            setShowSmartPrompt(false);
+            setCurrentPrompt(null);
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -305,13 +409,27 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 2,
     padding: 16,
-    marginBottom: 24,
+    marginBottom: 16,
     minHeight: 120,
   },
   input: {
     fontSize: 16,
     lineHeight: 24,
     textAlignVertical: 'top',
+  },
+  enrichmentBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 16,
+  },
+  enrichmentText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
   },
   parseResult: {
     marginBottom: 24,
