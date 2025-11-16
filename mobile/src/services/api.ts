@@ -152,7 +152,9 @@ class ApiService {
 
   // Sync endpoint
   async sync(changes: any) {
-    const { data } = await this.client.post('/sync', changes);
+    // Convert grouped changes to the format expected by backend
+    const tasks = changes.task || [];
+    const { data } = await this.client.post('/tasks/sync', { tasks });
     return data;
   }
 }

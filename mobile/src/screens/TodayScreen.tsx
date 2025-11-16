@@ -80,7 +80,7 @@ export default function TodayScreen() {
         </View>
         <IconButton
           icon={<Ionicons name="notifications-outline" size={24} color={theme.colors.text} />}
-          onPress={() => {}}
+          onPress={() => navigation.navigate('Settings' as never)}
         />
       </View>
 

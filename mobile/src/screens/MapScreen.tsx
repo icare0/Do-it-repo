@@ -83,7 +83,7 @@ export default function MapScreen() {
       </View>
 
       {loadingLocation && (
-        <View style={styles.loadingOverlay}>
+        <View style={[styles.loadingOverlay, { backgroundColor: colorScheme === 'dark' ? 'rgba(23, 23, 23, 0.95)' : 'rgba(255, 255, 255, 0.95)' }]}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
           <Text style={[styles.loadingText, { color: theme.colors.text }]}>
             Récupération de votre position...
@@ -130,7 +130,6 @@ const styles = StyleSheet.create({
     left: '50%',
     transform: [{ translateX: -75 }, { translateY: -50 }],
     zIndex: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     padding: 20,
     borderRadius: 12,
     alignItems: 'center',

@@ -74,6 +74,10 @@ export default function QuickAddScreen() {
           if (taskData.duration) {
             task.duration = taskData.duration;
           }
+
+          if (taskData.recurringPattern) {
+            task.recurringPattern = taskData.recurringPattern;
+          }
         });
       });
 
@@ -87,6 +91,7 @@ export default function QuickAddScreen() {
         category: taskData.category,
         startDate: taskData.date,
         duration: taskData.duration,
+        recurringPattern: taskData.recurringPattern,
         createdAt: new Date(),
         updatedAt: new Date(),
       });
@@ -99,6 +104,7 @@ export default function QuickAddScreen() {
         category: taskData.category,
         startDate: taskData.date,
         duration: taskData.duration,
+        recurringPattern: taskData.recurringPattern,
       });
 
       navigation.goBack();
@@ -179,6 +185,17 @@ export default function QuickAddScreen() {
                   <Ionicons name="time-outline" size={16} color={theme.colors.primary} />
                   <Text style={[styles.parseLabel, { color: theme.colors.text }]}>
                     {parsedTask.duration} min
+                  </Text>
+                </View>
+              )}
+
+              {parsedTask.recurringPattern && (
+                <View style={styles.parseItem}>
+                  <Ionicons name="repeat-outline" size={16} color={theme.colors.primary} />
+                  <Text style={[styles.parseLabel, { color: theme.colors.text }]}>
+                    {parsedTask.recurringPattern.frequency === 'daily' ? 'Quotidien' :
+                     parsedTask.recurringPattern.frequency === 'weekly' ? 'Hebdomadaire' :
+                     parsedTask.recurringPattern.frequency === 'monthly' ? 'Mensuel' : 'Annuel'}
                   </Text>
                 </View>
               )}

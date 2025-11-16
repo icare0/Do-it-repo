@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Switch, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,6 +11,7 @@ import { useSyncStore } from '@/store/syncStore';
 import { getTheme } from '@/theme';
 import { authService } from '@/services/authService';
 import { syncService } from '@/services/syncService';
+import { locationService } from '@/services/locationService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function SettingsScreen() {
@@ -22,6 +23,27 @@ export default function SettingsScreen() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [locationEnabled, setLocationEnabled] = useState(true);
   const [syncing, setSyncing] = useState(false);
+
+  // Load settings from AsyncStorage on mount
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  async function loadSettings() {
+    try {
+      const notifEnabled = await AsyncStorage.getItem('notifications_enabled');
+      const locEnabled = await AsyncStorage.getItem('location_enabled');
+
+      if (notifEnabled !== null) {
+        setNotificationsEnabled(notifEnabled === 'true');
+      }
+      if (locEnabled !== null) {
+        setLocationEnabled(locEnabled === 'true');
+      }
+    } catch (error) {
+      console.error('Error loading settings:', error);
+    }
+  }
 
   async function handleLogout() {
     Alert.alert('Déconnexion', 'Êtes-vous sûr de vouloir vous déconnecter ?', [
@@ -58,10 +80,30 @@ export default function SettingsScreen() {
   }
 
   async function handleToggleLocation(value: boolean) {
-    setLocationEnabled(value);
-    await AsyncStorage.setItem('location_enabled', value.toString());
-    if (value) {
-      Alert.alert('Localisation activée', 'Vous pouvez maintenant ajouter des lieux à vos tâches', [{ text: 'OK' }]);
+    try {
+      setLocationEnabled(value);
+      await AsyncStorage.setItem('location_enabled', value.toString());
+
+      if (value) {
+        // Request permissions and start background tracking
+        const hasPermission = await locationService.requestPermissions();
+        if (hasPermission) {
+          await locationService.startBackgroundLocationTracking();
+          Alert.alert('Localisation activée', 'Vous pouvez maintenant ajouter des lieux à vos tâches et recevoir des rappels de proximité.', [{ text: 'OK' }]);
+        } else {
+          // Permission denied, revert the toggle
+          setLocationEnabled(false);
+          await AsyncStorage.setItem('location_enabled', 'false');
+          Alert.alert('Permission requise', 'Veuillez activer la localisation dans les paramètres de votre appareil.', [{ text: 'OK' }]);
+        }
+      } else {
+        // Stop background tracking
+        await locationService.stopBackgroundLocationTracking();
+        Alert.alert('Localisation désactivée', 'Le suivi de localisation en arrière-plan a été désactivé.', [{ text: 'OK' }]);
+      }
+    } catch (error) {
+      console.error('Error toggling location:', error);
+      Alert.alert('Erreur', 'Impossible de modifier les paramètres de localisation.', [{ text: 'OK' }]);
     }
   }
 
