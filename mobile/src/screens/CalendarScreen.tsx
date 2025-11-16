@@ -67,6 +67,19 @@ export default function CalendarScreen() {
             todayTextColor: theme.colors.primary,
             dayTextColor: theme.colors.text,
             textDisabledColor: theme.colors.textTertiary,
+            monthTextColor: theme.colors.text,
+            arrowColor: theme.colors.primary,
+            textDayFontWeight: '400',
+            textMonthFontWeight: '600',
+            textDayHeaderFontWeight: '500',
+            'stylesheet.calendar.header': {
+              week: {
+                marginTop: 5,
+                flexDirection: 'row',
+                justifyContent: 'space-around',
+                backgroundColor: theme.colors.surface,
+              },
+            },
           }}
         />
 
