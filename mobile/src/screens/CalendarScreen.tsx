@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar } from 'react-native-calendars';
 import { useThemeStore } from '@/store/themeStore';
@@ -12,9 +12,42 @@ export default function CalendarScreen() {
   const { colorScheme } = useThemeStore();
   const theme = getTheme(colorScheme);
   const { tasks } = useTaskStore();
+  const [syncing, setSyncing] = useState(false);
 
   async function handleSync() {
-    await calendarService.syncTasksToCalendar(tasks);
+    try {
+      setSyncing(true);
+
+      // Request calendar permissions
+      const hasPermission = await calendarService.requestCalendarPermissions();
+
+      if (!hasPermission) {
+        Alert.alert(
+          'Permission requise',
+          'Veuillez autoriser l\'accès au calendrier pour synchroniser vos tâches.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      // Sync tasks to calendar
+      await calendarService.syncTasksToCalendar(tasks);
+
+      Alert.alert(
+        'Synchronisation réussie',
+        `${tasks.filter(t => t.startDate).length} tâches ont été synchronisées avec votre calendrier.`,
+        [{ text: 'OK' }]
+      );
+    } catch (error) {
+      console.error('Calendar sync error:', error);
+      Alert.alert(
+        'Erreur de synchronisation',
+        'Impossible de synchroniser les tâches avec le calendrier. Veuillez réessayer.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setSyncing(false);
+    }
   }
 
   return (
@@ -40,9 +73,17 @@ export default function CalendarScreen() {
         <Button
           title="Synchroniser avec le calendrier"
           onPress={handleSync}
+          loading={syncing}
+          disabled={syncing || tasks.filter(t => t.startDate).length === 0}
           fullWidth
           style={{ marginTop: 24 }}
         />
+
+        {tasks.filter(t => t.startDate).length === 0 && (
+          <Text style={[styles.infoText, { color: theme.colors.textSecondary }]}>
+            Aucune tâche avec date à synchroniser
+          </Text>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -53,4 +94,9 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 24, paddingVertical: 16 },
   title: { fontSize: 32, fontWeight: '700' },
   content: { padding: 24 },
+  infoText: {
+    marginTop: 12,
+    fontSize: 14,
+    textAlign: 'center',
+  },
 });
