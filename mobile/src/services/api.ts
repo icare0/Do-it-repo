@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '@/store/authStore';
 
 const API_URL = __DEV__
-  ? 'http://localhost:3000/api'
+  ? 'http://192.168.1.59:3000/api'
   : 'https://your-production-api.com/api';
 
 class ApiService {

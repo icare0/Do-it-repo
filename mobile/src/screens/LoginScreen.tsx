@@ -122,13 +122,31 @@ export default function LoginScreen() {
 
           {/* Social Login */}
           <View style={styles.socialContainer}>
-            <Button
-              title="Continuer avec Google"
-              onPress={handleGoogleLogin}
-              variant="outline"
-              fullWidth
-              icon={<Ionicons name="logo-google" size={20} color={theme.colors.primary} />}
-            />
+{/* TEMPORAIREMENT DÉSACTIVÉ - On configure ça après
+<Button
+  title="Continuer avec Google"
+  onPress={handleGoogleLogin}
+  variant="outline"
+  fullWidth
+  icon={<Ionicons name="logo-google" size={20} color={theme.colors.primary} />}
+/>
+*/}
+<Button
+  title="🧪 TEST API"
+  onPress={async () => {
+    try {
+      console.log('Test: http://192.168.1.59:3000/api/health');
+      const response = await fetch('http://192.168.1.59:3000/api/health');
+      const data = await response.json();
+      Alert.alert('✅ Succès!', JSON.stringify(data, null, 2));
+    } catch (error: any) {
+      Alert.alert('❌ Erreur', error.message);
+    }
+  }}
+  variant="outline"
+  fullWidth
+  style={{ marginTop: 16 }}
+/>
           </View>
 
           {/* Register Link */}
