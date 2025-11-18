@@ -57,31 +57,56 @@ export default function CalendarScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        <Calendar
-          theme={{
-            backgroundColor: theme.colors.background,
-            calendarBackground: theme.colors.surface,
-            textSectionTitleColor: theme.colors.textSecondary,
-            selectedDayBackgroundColor: theme.colors.primary,
-            selectedDayTextColor: '#ffffff',
-            todayTextColor: theme.colors.primary,
-            dayTextColor: theme.colors.text,
-            textDisabledColor: theme.colors.textTertiary,
-            monthTextColor: theme.colors.text,
-            arrowColor: theme.colors.primary,
-            textDayFontWeight: '400',
-            textMonthFontWeight: '600',
-            textDayHeaderFontWeight: '500',
-            'stylesheet.calendar.header': {
-              week: {
-                marginTop: 5,
-                flexDirection: 'row',
-                justifyContent: 'space-around',
-                backgroundColor: theme.colors.surface,
-              },
-            },
-          }}
-        />
+        <View style={[
+          styles.calendarContainer,
+          {
+            backgroundColor: colorScheme === 'dark' ? '#171717' : '#FFFFFF',
+            borderRadius: 16,
+            borderWidth: colorScheme === 'dark' ? 1 : 0,
+            borderColor: colorScheme === 'dark' ? '#404040' : 'transparent',
+          }
+        ]}>
+          <Calendar
+            key={`calendar-${colorScheme}`} // Force re-render on theme change
+            theme={colorScheme === 'dark' ? {
+              // Dark theme
+              backgroundColor: '#171717',
+              calendarBackground: '#171717',
+              textSectionTitleColor: '#A3A3A3',
+              selectedDayBackgroundColor: '#60A5FA',
+              selectedDayTextColor: '#ffffff',
+              todayTextColor: '#60A5FA',
+              dayTextColor: '#FAFAFA',
+              textDisabledColor: '#737373',
+              monthTextColor: '#FAFAFA',
+              arrowColor: '#60A5FA',
+              disabledArrowColor: '#737373',
+              textDayFontWeight: '400',
+              textMonthFontWeight: '600',
+              textDayHeaderFontWeight: '500',
+            } : {
+              // Light theme
+              backgroundColor: '#FFFFFF',
+              calendarBackground: '#FFFFFF',
+              textSectionTitleColor: '#737373',
+              selectedDayBackgroundColor: '#3B82F6',
+              selectedDayTextColor: '#ffffff',
+              todayTextColor: '#3B82F6',
+              dayTextColor: '#171717',
+              textDisabledColor: '#A3A3A3',
+              monthTextColor: '#171717',
+              arrowColor: '#3B82F6',
+              disabledArrowColor: '#A3A3A3',
+              textDayFontWeight: '400',
+              textMonthFontWeight: '600',
+              textDayHeaderFontWeight: '500',
+            }}
+            style={{
+              backgroundColor: colorScheme === 'dark' ? '#171717' : '#FFFFFF',
+              borderRadius: 16,
+            }}
+          />
+        </View>
 
         <View style={[styles.infoCard, { backgroundColor: `${theme.colors.primary}08`, borderColor: `${theme.colors.primary}30` }]}>
           <Ionicons name="information-circle" size={24} color={theme.colors.primary} />
@@ -106,6 +131,16 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 24, paddingVertical: 16 },
   title: { fontSize: 32, fontWeight: '700' },
   content: { padding: 24 },
+  calendarContainer: {
+    marginBottom: 24,
+    borderRadius: 16,
+    overflow: 'hidden',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
   infoText: {
     marginTop: 12,
     fontSize: 14,

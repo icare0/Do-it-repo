@@ -13,10 +13,14 @@ class AuthService {
     try {
       useAuthStore.getState().setLoading(true);
 
-      // Configure Google Sign In
+      // Configure Google Sign In with the CORRECT Web Client ID
       GoogleSignin.configure({
-        webClientId: '1:731566945558:web:5b800388f785d4a972cc37',
+        webClientId: '731566945558-7232om519vm0ivgvour2mh7b5n83ju39.apps.googleusercontent.com', // ✅ Client Web correct
+        offlineAccess: true,
+        forceCodeForRefreshToken: true,
       });
+
+      console.log('🔧 Google Sign-In configured');
 
       // Check if user is already logged in
       const token = await AsyncStorage.getItem(TOKEN_KEY);
@@ -32,7 +36,7 @@ class AuthService {
 
       return false;
     } catch (error) {
-      console.error('Auth initialization error:', error);
+      console.error('❌ Auth initialization error:', error);
       return false;
     } finally {
       useAuthStore.getState().setLoading(false);
@@ -61,32 +65,70 @@ class AuthService {
 
   async loginWithGoogle() {
     try {
-      // Check if device supports Google Play
+      console.log('🚀 Starting Google Sign-In...');
+
+      // Configure Google Sign-In une seule fois
+      GoogleSignin.configure({
+        webClientId: '731566945558-7232om519vm0ivgvour2mh7b5n83ju39.apps.googleusercontent.com',
+        offlineAccess: true,
+        forceCodeForRefreshToken: true,
+      });
+      console.log('🔧 Google Sign-In configured');
+
+      // Vérifie la disponibilité de Google Play Services
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      console.log('✅ Google Play Services available');
 
-      // Get user info
-      const { idToken } = await GoogleSignin.signIn();
+      // Sign out préalable si déjà connecté
+      const alreadySignedIn = await GoogleSignin.isSignedIn();
+      if (alreadySignedIn) {
+        console.log('🔄 User already signed in, signing out...');
+        await GoogleSignin.signOut();
+      }
 
-      if (!idToken) throw new Error('No ID token received');
+      // Lancement du login Google
+      const userInfo = await GoogleSignin.signIn();
+      console.log('👤 Google Sign-In successful:', userInfo.user.email);
 
-      // Send to backend
+      const { idToken } = userInfo;
+      if (!idToken) throw new Error('❌ No ID token received from Google Sign-In');
+
+      console.log('🔑 ID Token received, signing in with Firebase...');
+
+      // Firebase credential
+      const credential = auth.GoogleAuthProvider.credential(idToken);
+      const firebaseUser = await auth().signInWithCredential(credential);
+      console.log('✅ Firebase authentication successful:', firebaseUser.user.email);
+
+      // Envoi à ton backend
       const response = await apiService.loginWithGoogle(idToken);
+      console.log('✅ Backend authentication successful');
+
+      // Sauvegarde des tokens et de l’utilisateur
       await this.saveAuthData(response.token, response.refreshToken, response.user);
+      console.log('💾 Auth data saved in AsyncStorage');
+
       return response.user;
-    } catch (error) {
+    } catch (error: any) {
+      console.error('❌ Google Sign-In Error:', error);
+
+      if (error.code) {
+        switch (error.code) {
+          case 'SIGN_IN_CANCELLED': throw new Error('Connexion annulée');
+          case 'IN_PROGRESS': throw new Error('Connexion en cours...');
+          case 'PLAY_SERVICES_NOT_AVAILABLE': throw new Error('Google Play Services non disponible');
+          case 'SIGN_IN_REQUIRED': throw new Error('Veuillez vous connecter à nouveau');
+          case 'DEVELOPER_ERROR':
+          case '10': throw new Error('Configuration Google incorrecte. Contactez le développeur.');
+          default: throw new Error(`Erreur Google Sign-In (${error.code}): ${error.message}`);
+        }
+      }
+
+      // Gestion générique
       throw this.handleAuthError(error);
     }
   }
 
-  async loginWithApple() {
-    try {
-      // Apple Sign In logic will be implemented
-      // This requires iOS-specific configuration
-      throw new Error('Apple Sign In not yet implemented');
-    } catch (error) {
-      throw this.handleAuthError(error);
-    }
-  }
 
   async logout() {
     try {
@@ -95,8 +137,15 @@ class AuthService {
       console.error('Logout API error:', error);
     } finally {
       await this.clearAuthData();
-      if (await GoogleSignin.isSignedIn()) {
-        await GoogleSignin.signOut();
+
+      // Sign out from Google
+      try {
+        if (await GoogleSignin.isSignedIn()) {
+          await GoogleSignin.signOut();
+          console.log('🔄 Google Sign-Out successful');
+        }
+      } catch (error) {
+        console.error('Google sign-out error:', error);
       }
     }
   }

@@ -12,7 +12,20 @@
           "package_name": "com.icare.doit"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "731566945558-tk41snmvn6fs2pivk7peuud3o9ktdvji.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.icare.doit",
+            "certificate_hash": "69018da9e2b47c347010009f2fe13aad47231807"
+          }
+        },
+        {
+          "client_id": "731566945558-7232om519vm0ivgvour2mh7b5n83ju39.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyD6000xWh48ybeR1OTiSrOwGSl92V6OKX0"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "731566945558-7232om519vm0ivgvour2mh7b5n83ju39.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
