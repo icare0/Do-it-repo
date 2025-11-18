@@ -104,28 +104,11 @@ function TabNavigator() {
 }
 
 export default function RootNavigator() {
-  const { isAuthenticated, isLoading, setLoading } = useAuthStore();
+  const { isAuthenticated, isLoading } = useAuthStore();
   const { colorScheme } = useThemeStore();
   const theme = getTheme(colorScheme);
-  const [isInitialized, setIsInitialized] = useState(false);
 
-  useEffect(() => {
-    initializeApp();
-  }, []);
-
-  async function initializeApp() {
-    try {
-      setLoading(true);
-      await authService.initialize();
-    } catch (error) {
-      console.error('App initialization error:', error);
-    } finally {
-      setLoading(false);
-      setIsInitialized(true);
-    }
-  }
-
-  if (!isInitialized || isLoading) {
+  if (isLoading) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.background }}>
         <ActivityIndicator size="large" color={theme.colors.primary} />

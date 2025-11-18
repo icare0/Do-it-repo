@@ -1,3 +1,5 @@
+import { RecurringPattern } from '@/types';
+
 interface ParsedTask {
   title: string;
   date?: Date;
@@ -5,6 +7,7 @@ interface ParsedTask {
   duration?: number;
   priority?: 'low' | 'medium' | 'high';
   category?: string;
+  recurringPattern?: RecurringPattern;
 }
 
 class NLPService {
@@ -34,12 +37,58 @@ class NLPService {
     'dimanche': 0,
   };
 
+  private timeOfDayKeywords: { [key: string]: number } = {
+    'matin': 9,
+    'midi': 12,
+    'après-midi': 15,
+    'soir': 20,
+    'nuit': 22,
+  };
+
+  private recurringKeywords = {
+    daily: ['tous les jours', 'chaque jour', 'quotidien', 'quotidiennement'],
+    weekly: ['toutes les semaines', 'chaque semaine', 'hebdomadaire', 'hebdomadairement'],
+    monthly: ['tous les mois', 'chaque mois', 'mensuel', 'mensuellement'],
+    yearly: ['tous les ans', 'chaque année', 'annuel', 'annuellement'],
+  };
+
   parseQuickAdd(input: string): ParsedTask {
     const parsed: ParsedTask = {
       title: input,
     };
 
     let cleanedInput = input;
+
+    // Parse recurring patterns first
+    const lowerInput = input.toLowerCase();
+    for (const [frequency, keywords] of Object.entries(this.recurringKeywords)) {
+      if (keywords.some(keyword => lowerInput.includes(keyword))) {
+        parsed.recurringPattern = {
+          frequency: frequency as 'daily' | 'weekly' | 'monthly' | 'yearly',
+          interval: 1,
+        };
+        // Remove recurring keyword from input
+        keywords.forEach(keyword => {
+          cleanedInput = cleanedInput.replace(new RegExp(keyword, 'gi'), '').trim();
+        });
+        break;
+      }
+    }
+
+    // Parse time of day keywords (ce matin, ce soir, cette nuit, etc.)
+    const timeOfDayPattern = /(ce|cette|cet)?\s*(matin|midi|après-midi|soir|nuit)/i;
+    const timeOfDayMatch = input.match(timeOfDayPattern);
+    if (timeOfDayMatch) {
+      const timeOfDay = timeOfDayMatch[2].toLowerCase();
+      const hour = this.timeOfDayKeywords[timeOfDay] || 12;
+
+      if (!parsed.date) {
+        parsed.date = new Date();
+      }
+      parsed.date.setHours(hour, 0, 0, 0);
+      parsed.time = `${hour.toString().padStart(2, '0')}:00`;
+      cleanedInput = cleanedInput.replace(timeOfDayMatch[0], '').trim();
+    }
 
     // Parse relative dates (aujourd'hui, demain, après-demain)
     const relativeDatePattern = /(aujourd'?hui|demain|après-demain)/i;
@@ -48,7 +97,7 @@ class NLPService {
       const keyword = relativeDateMatch[1].toLowerCase().replace("'", '');
       const daysToAdd = keyword === 'aujourdhui' || keyword === 'aujourdhui' ? 0 :
                         keyword === 'demain' ? 1 : 2;
-      const date = new Date();
+      const date = parsed.date || new Date();
       date.setDate(date.getDate() + daysToAdd);
       parsed.date = date;
       cleanedInput = cleanedInput.replace(relativeDateMatch[0], '').trim();
@@ -82,6 +131,14 @@ class NLPService {
       }
     }
 
+    // Detect category
+    for (const [category, keywords] of Object.entries(this.categoryKeywords)) {
+      if (keywords.some(keyword => lowerInput.includes(keyword))) {
+        parsed.category = category;
+        break;
+      }
+    }
+
     parsed.title = cleanedInput;
 
     // Parse duration
@@ -91,15 +148,6 @@ class NLPService {
       const unit = durationMatch[2].toLowerCase();
       parsed.duration = unit.startsWith('h') ? value * 60 : value;
       parsed.title = parsed.title.replace(durationMatch[0], '').trim();
-    }
-
-    // Detect category
-    const lowerInput = input.toLowerCase();
-    for (const [category, keywords] of Object.entries(this.categoryKeywords)) {
-      if (keywords.some(keyword => lowerInput.includes(keyword))) {
-        parsed.category = category;
-        break;
-      }
     }
 
     // Detect priority

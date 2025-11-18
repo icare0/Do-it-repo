@@ -80,7 +80,7 @@ export default function TodayScreen() {
         </View>
         <IconButton
           icon={<Ionicons name="notifications-outline" size={24} color={theme.colors.text} />}
-          onPress={() => {}}
+          onPress={() => navigation.navigate('Notifications' as never)}
         />
       </View>
 
@@ -102,7 +102,11 @@ export default function TodayScreen() {
                 {completedToday.length} / {todayTasks.length + completedToday.length} tâches
               </Text>
             </View>
-            <View style={styles.progressCircle}>
+            <View style={[styles.progressCircle, {
+              backgroundColor: colorScheme === 'dark'
+                ? 'rgba(96, 165, 250, 0.15)' // primary color with opacity for dark mode
+                : 'rgba(59, 130, 246, 0.1)' // primary color with opacity for light mode
+            }]}>
               <Text style={[styles.progressPercentage, { color: theme.colors.primary }]}>
                 {todayTasks.length + completedToday.length > 0
                   ? Math.round((completedToday.length / (todayTasks.length + completedToday.length)) * 100)
@@ -202,7 +206,7 @@ export default function TodayScreen() {
 
       {/* FAB */}
       <TouchableOpacity
-        style={[styles.fab, theme.shadows.lg]}
+        style={[styles.fab, { backgroundColor: theme.colors.primary }, theme.shadows.lg]}
         onPress={() => navigation.navigate('QuickAdd' as never)}
       >
         <Ionicons name="add" size={28} color="#fff" />
@@ -258,7 +262,6 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -329,7 +332,6 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#3B82F6',
     alignItems: 'center',
     justifyContent: 'center',
   },
