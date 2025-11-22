@@ -6,14 +6,22 @@ const WHISPER_API_KEY = 'WHISPER_API_KEY';
 
 // Dynamic import to handle missing native module
 let Audio: typeof import('expo-av').Audio | null = null;
+let audioAvailable = false;
 
 async function loadAudio() {
   try {
     const expoAv = await import('expo-av');
-    Audio = expoAv.Audio;
-  } catch (error) {
-    console.warn('expo-av not available (requires dev build)');
+    // Test if native module is actually available by checking a property
+    if (expoAv.Audio && typeof expoAv.Audio.setAudioModeAsync === 'function') {
+      // Try to actually use it to verify native module exists
+      await expoAv.Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
+      Audio = expoAv.Audio;
+      audioAvailable = true;
+    }
+  } catch {
+    // Silently fail - native module not available (Expo Go)
     Audio = null;
+    audioAvailable = false;
   }
 }
 

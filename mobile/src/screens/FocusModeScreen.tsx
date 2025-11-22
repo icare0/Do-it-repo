@@ -36,15 +36,25 @@ let keepAwakeModule: any = null;
 let audioModule: any = null;
 
 async function loadNativeModules() {
+  // Load expo-keep-awake
   try {
-    keepAwakeModule = await import('expo-keep-awake');
-  } catch (error) {
-    console.warn('expo-keep-awake not available');
+    const ka = await import('expo-keep-awake');
+    if (ka.activateKeepAwakeAsync) {
+      keepAwakeModule = ka;
+    }
+  } catch {
+    // Silently fail
   }
+
+  // Load expo-av with native module check
   try {
-    audioModule = await import('expo-av');
-  } catch (error) {
-    console.warn('expo-av not available');
+    const av = await import('expo-av');
+    if (av.Audio && typeof av.Audio.setAudioModeAsync === 'function') {
+      await av.Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
+      audioModule = av;
+    }
+  } catch {
+    // Silently fail - native module not available
   }
 }
 
