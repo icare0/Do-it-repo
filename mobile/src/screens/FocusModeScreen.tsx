@@ -12,8 +12,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
-import { Audio } from 'expo-av';
 
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -33,6 +31,25 @@ const AMBIENT_SOUNDS = {
   waves: 'https://assets.mixkit.co/active_storage/sfx/529/529-preview.mp3',
 };
 
+// Dynamic imports for native modules
+let keepAwakeModule: any = null;
+let audioModule: any = null;
+
+async function loadNativeModules() {
+  try {
+    keepAwakeModule = await import('expo-keep-awake');
+  } catch (error) {
+    console.warn('expo-keep-awake not available');
+  }
+  try {
+    audioModule = await import('expo-av');
+  } catch (error) {
+    console.warn('expo-av not available');
+  }
+}
+
+loadNativeModules();
+
 export default function FocusModeScreen() {
   const navigation = useNavigation();
   const route = useRoute();
@@ -47,7 +64,7 @@ export default function FocusModeScreen() {
   const [totalFocusTime, setTotalFocusTime] = useState(0);
   const [sessionsCompleted, setSessionsCompleted] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
+  const [sound, setSound] = useState<any>(null);
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const progressAnim = useRef(new Animated.Value(1)).current;
@@ -58,12 +75,16 @@ export default function FocusModeScreen() {
 
   // Keep screen awake during focus
   useEffect(() => {
-    if (phase === 'focus' && !isPaused) {
-      activateKeepAwakeAsync();
-    } else {
-      deactivateKeepAwake();
+    if (phase === 'focus' && !isPaused && keepAwakeModule) {
+      keepAwakeModule.activateKeepAwakeAsync?.();
+    } else if (keepAwakeModule) {
+      keepAwakeModule.deactivateKeepAwake?.();
     }
-    return () => deactivateKeepAwake();
+    return () => {
+      if (keepAwakeModule) {
+        keepAwakeModule.deactivateKeepAwake?.();
+      }
+    };
   }, [phase, isPaused]);
 
   // Handle app state changes (pause when backgrounded)
@@ -141,7 +162,7 @@ export default function FocusModeScreen() {
     if (phase === 'focus') {
       setSessionsCompleted((prev) => prev + 1);
       await notificationService.scheduleLocalNotification({
-        title: 'Pause méritée ! 🎉',
+        title: 'Pause méritée !',
         body: 'Bien joué ! Prends une pause de quelques minutes.',
       });
 
@@ -197,11 +218,13 @@ export default function FocusModeScreen() {
   };
 
   const playAmbientSound = async (soundType: keyof typeof AMBIENT_SOUNDS) => {
+    if (!audioModule) return;
+
     try {
       const soundUrl = AMBIENT_SOUNDS[soundType];
       if (!soundUrl) return;
 
-      const { sound: newSound } = await Audio.Sound.createAsync(
+      const { sound: newSound } = await audioModule.Audio.Sound.createAsync(
         { uri: soundUrl },
         { isLooping: true, volume: 0.5 }
       );
@@ -214,8 +237,12 @@ export default function FocusModeScreen() {
 
   const stopAmbientSound = async () => {
     if (sound) {
-      await sound.stopAsync();
-      await sound.unloadAsync();
+      try {
+        await sound.stopAsync();
+        await sound.unloadAsync();
+      } catch (error) {
+        console.error('Error stopping sound:', error);
+      }
       setSound(null);
     }
   };
@@ -390,7 +417,7 @@ export default function FocusModeScreen() {
       {/* Status message */}
       {isPaused && (
         <Text style={[styles.pausedText, { color: theme.colors.warning }]}>
-          ⏸ En pause
+          En pause
         </Text>
       )}
     </SafeAreaView>
