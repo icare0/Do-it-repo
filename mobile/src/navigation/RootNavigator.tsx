@@ -20,6 +20,9 @@ import QuickAddScreen from '@/screens/QuickAddScreen';
 import MapScreen from '@/screens/MapScreen';
 import CalendarScreen from '@/screens/CalendarScreen';
 import SettingsScreen from '@/screens/SettingsScreen';
+import NotificationsScreen from '@/screens/NotificationsScreen';
+import NotificationSettingsScreen from '@/screens/NotificationSettingsScreen';
+import FocusModeScreen from '@/screens/FocusModeScreen';
 
 import { RootStackParamList } from '@/types';
 
@@ -146,6 +149,28 @@ export default function RootNavigator() {
               options={{
                 presentation: 'modal',
                 animation: 'slide_from_right',
+              }}
+            />
+            <Stack.Screen
+              name="Notifications"
+              component={NotificationsScreen}
+              options={{
+                animation: 'slide_from_right',
+              }}
+            />
+            <Stack.Screen
+              name="NotificationSettings"
+              component={NotificationSettingsScreen}
+              options={{
+                animation: 'slide_from_right',
+              }}
+            />
+            <Stack.Screen
+              name="FocusMode"
+              component={FocusModeScreen}
+              options={{
+                presentation: 'fullScreenModal',
+                animation: 'slide_from_bottom',
               }}
             />
           </>

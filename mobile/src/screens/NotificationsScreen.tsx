@@ -1,396 +1,404 @@
-import NetInfo from '@react-native-community/netinfo';
-import { database, TaskModel, SyncQueueModel } from '@/database';
-import { apiService } from './api';
-import { useSyncStore } from '@/store/syncStore';
-import { useTaskStore } from '@/store/taskStore';
-import { useAuthStore } from '@/store/authStore';
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  RefreshControl,
+  Alert,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { format, isToday, isYesterday } from 'date-fns';
+import { fr } from 'date-fns/locale';
 
-class SyncService {
-  private syncInterval: NodeJS.Timeout | null = null;
-  private isOnline: boolean = true;
-  private isSyncing: boolean = false;
+import { Card } from '@/components/ui/Card';
+import { IconButton } from '@/components/ui/IconButton';
+import { SwipeableRow } from '@/components/ui/SwipeableRow';
+import { SkeletonNotification, SkeletonList } from '@/components/ui/Skeleton';
+import { useThemeStore } from '@/store/themeStore';
+import { useNotificationStore, NotificationItem } from '@/store/notificationStore';
+import { getTheme } from '@/theme';
+import { hapticsService } from '@/services/hapticsService';
 
-  async initialize() {
-    NetInfo.addEventListener((state) => {
-      const wasOffline = !this.isOnline;
-      this.isOnline = state.isConnected || false;
-
-      if (wasOffline && this.isOnline) {
-        console.log('🌐 Back online, triggering sync');
-        this.sync();
-      }
-    });
-
-    this.startPeriodicSync();
-
-    const { token, refreshToken } = useAuthStore.getState();
-    if (token && refreshToken) {
-      console.log("🔄 Initial sync triggered");
-      await this.sync();
-    } else {
-      console.log("⏸️ Initial sync skipped (no tokens yet)");
-    }
+const getNotificationIcon = (type: NotificationItem['type']): string => {
+  switch (type) {
+    case 'task_reminder':
+      return 'alarm-outline';
+    case 'location_reminder':
+      return 'location-outline';
+    case 'daily_briefing':
+      return 'sunny-outline';
+    case 'achievement':
+      return 'trophy-outline';
+    case 'system':
+      return 'information-circle-outline';
+    default:
+      return 'notifications-outline';
   }
+};
 
-  private startPeriodicSync() {
-    if (this.syncInterval) {
-      clearInterval(this.syncInterval);
-    }
-
-    this.syncInterval = setInterval(() => {
-      if (this.isOnline && !this.isSyncing) {
-        console.log('🕐 Periodic sync triggered');
-        this.sync();
-      }
-    }, 5 * 60 * 1000);
+const getNotificationColor = (type: NotificationItem['type'], theme: any): string => {
+  switch (type) {
+    case 'task_reminder':
+      return theme.colors.primary;
+    case 'location_reminder':
+      return theme.colors.secondary;
+    case 'daily_briefing':
+      return theme.colors.warning;
+    case 'achievement':
+      return theme.colors.success;
+    case 'system':
+      return theme.colors.info;
+    default:
+      return theme.colors.textSecondary;
   }
+};
 
-  async sync() {
-    if (!this.isOnline) {
-      console.log('📴 Offline, skipping sync');
-      return;
-    }
-
-    const { token, refreshToken } = useAuthStore.getState();
-    if (!token || !refreshToken) {
-      console.log('🔐 Skipping sync - no token or refreshToken');
-      return;
-    }
-
-    if (this.isSyncing) {
-      console.log('⏳ Sync already in progress');
-      return;
-    }
-
-    try {
-      this.isSyncing = true;
-      const syncStore = useSyncStore.getState();
-      syncStore.startSync();
-
-      console.log('🚀 Starting sync for authenticated user');
-
-      await this.pushChanges();
-      await this.pullChanges();
-
-      syncStore.finishSync();
-      console.log('✅ Sync completed successfully');
-    } catch (error) {
-      console.error('❌ Sync error:', error);
-      const syncStore = useSyncStore.getState();
-      syncStore.finishSync((error as Error).message);
-    } finally {
-      this.isSyncing = false;
-    }
+const formatNotificationDate = (date: Date): string => {
+  if (isToday(date)) {
+    return `Aujourd'hui, ${format(date, 'HH:mm')}`;
   }
+  if (isYesterday(date)) {
+    return `Hier, ${format(date, 'HH:mm')}`;
+  }
+  return format(date, "d MMM, HH:mm", { locale: fr });
+};
 
-  private async pushChanges() {
-    try {
-      const syncQueue = await database
-        .get<SyncQueueModel>('sync_queue')
-        .query()
-        .fetch();
+export default function NotificationsScreen() {
+  const navigation = useNavigation();
+  const { colorScheme } = useThemeStore();
+  const theme = getTheme(colorScheme);
+  const {
+    notifications,
+    unreadCount,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification,
+    clearAllNotifications,
+    loadFromStorage,
+  } = useNotificationStore();
+  const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-      const pendingChanges = syncQueue.filter((item) => !item.synced);
+  useEffect(() => {
+    loadFromStorage().then(() => setIsLoading(false));
+  }, []);
 
-      if (pendingChanges.length === 0) {
-        console.log('✨ No pending changes to push');
-        return;
-      }
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadFromStorage();
+    setRefreshing(false);
+  };
 
-      console.log(`📤 Pushing ${pendingChanges.length} changes to server`);
-
-      const groupedChanges: Record<string, any[]> = {};
-      for (const change of pendingChanges) {
-        if (!groupedChanges[change.entityType]) {
-          groupedChanges[change.entityType] = [];
-        }
-
-        // ✅ Fix: Ensure proper data format for API
-        const changeData = {
-          id: change.entityId,
-          operation: change.operation,
-          data: this.sanitizeTaskData(change.data),
-        };
-
-        console.log(`📋 Preparing change: ${change.operation} for ${change.entityId}`, changeData);
-        groupedChanges[change.entityType].push(changeData);
-      }
-
-      // Send to API
-      await apiService.sync(groupedChanges);
-
-      // Mark as synced
-      await database.write(async () => {
-        for (const change of pendingChanges) {
-          await change.update((record) => {
-            record.synced = true;
-          });
-        }
-      });
-
-      useSyncStore.getState().setSyncStatus({ pendingChanges: 0 });
-      console.log('✅ Push complete');
-    } catch (error) {
-      console.error('❌ Push changes error:', error);
-      throw error;
+  const handleNotificationPress = async (notification: NotificationItem) => {
+    await hapticsService.light();
+    if (!notification.read) {
+      markAsRead(notification.id);
     }
-  }
 
-  private sanitizeTaskData(data: any) {
-    // ✅ Fix: Remove undefined values and ensure proper format
-    const sanitized = {
-      ...data,
-      // Convert dates to ISO strings
-      startDate: data.startDate ? new Date(data.startDate).toISOString() : undefined,
-      endDate: data.endDate ? new Date(data.endDate).toISOString() : undefined,
-      createdAt: data.createdAt ? new Date(data.createdAt).toISOString() : undefined,
-      updatedAt: new Date().toISOString(), // Always update timestamp
-    };
+    if (notification.taskId) {
+      navigation.navigate('TaskDetail' as never, { taskId: notification.taskId } as never);
+    }
+  };
 
-    // Remove undefined values
-    Object.keys(sanitized).forEach(key => {
-      if (sanitized[key] === undefined) {
-        delete sanitized[key];
-      }
-    });
+  const handleDelete = async (notificationId: string) => {
+    await hapticsService.medium();
+    deleteNotification(notificationId);
+  };
 
-    return sanitized;
-  }
+  const handleClearAll = () => {
+    Alert.alert(
+      'Effacer tout',
+      'Voulez-vous vraiment supprimer toutes les notifications ?',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Effacer',
+          style: 'destructive',
+          onPress: () => {
+            hapticsService.medium();
+            clearAllNotifications();
+          },
+        },
+      ]
+    );
+  };
 
-  private async pullChanges() {
-    try {
-      const lastSync = useSyncStore.getState().lastSync;
-      const lastSyncTime = lastSync ? lastSync.toISOString() : undefined;
+  const handleMarkAllRead = async () => {
+    await hapticsService.light();
+    markAllAsRead();
+  };
 
-      console.log(`📥 Making API call to getTasks with params:`, { startDate: lastSyncTime });
+  const renderNotification = ({ item }: { item: NotificationItem }) => {
+    const iconColor = getNotificationColor(item.type, theme);
 
-      const response = await apiService.getTasks({
-        startDate: lastSyncTime,
-      });
+    return (
+      <SwipeableRow
+        rightAction={{
+          icon: 'trash-outline',
+          color: '#fff',
+          backgroundColor: theme.colors.error,
+          onPress: () => handleDelete(item.id),
+          label: 'Supprimer',
+        }}
+      >
+        <TouchableOpacity
+          onPress={() => handleNotificationPress(item)}
+          activeOpacity={0.7}
+        >
+          <Card
+            style={[
+              styles.notificationCard,
+              !item.read && { backgroundColor: `${theme.colors.primary}08` },
+            ]}
+          >
+            <View style={styles.notificationContent}>
+              <View
+                style={[
+                  styles.iconContainer,
+                  { backgroundColor: `${iconColor}15` },
+                ]}
+              >
+                <Ionicons
+                  name={getNotificationIcon(item.type) as any}
+                  size={24}
+                  color={iconColor}
+                />
+              </View>
 
-      console.log(`📊 Raw API response:`, response);
+              <View style={styles.textContainer}>
+                <View style={styles.headerRow}>
+                  <Text
+                    style={[
+                      styles.title,
+                      { color: theme.colors.text },
+                      !item.read && styles.unread,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {item.title}
+                  </Text>
+                  {!item.read && (
+                    <View style={[styles.unreadDot, { backgroundColor: theme.colors.primary }]} />
+                  )}
+                </View>
 
-      if (!response.tasks || response.tasks.length === 0) {
-        console.log('📭 No valid tasks to pull from server after filtering');
-        return;
-      }
+                <Text
+                  style={[styles.body, { color: theme.colors.textSecondary }]}
+                  numberOfLines={2}
+                >
+                  {item.body}
+                </Text>
 
-      // ✅ Fix: Filter valid tasks and avoid duplicates
-      const validTasks = response.tasks.filter(task =>
-        task &&
-        task.id &&
-        task.title &&
-        task.userId
-      );
+                <Text style={[styles.time, { color: theme.colors.textTertiary }]}>
+                  {formatNotificationDate(item.timestamp)}
+                </Text>
+              </View>
+            </View>
+          </Card>
+        </TouchableOpacity>
+      </SwipeableRow>
+    );
+  };
 
-      console.log(`📋 Pulling ${validTasks.length} valid tasks from server (filtered from ${response.tasks.length} total)`);
+  const renderEmpty = () => (
+    <View style={styles.emptyContainer}>
+      <Ionicons
+        name="notifications-off-outline"
+        size={64}
+        color={theme.colors.textTertiary}
+      />
+      <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
+        Aucune notification
+      </Text>
+      <Text style={[styles.emptySubtitle, { color: theme.colors.textSecondary }]}>
+        Vos notifications apparaîtront ici
+      </Text>
+    </View>
+  );
 
-      // ✅ Fix: Better duplicate detection
-      const existingTaskIds = new Set();
-      const existingTasks = await database.get<TaskModel>('tasks').query().fetch();
+  return (
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      edges={['top']}
+    >
+      <View style={styles.header}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+        >
+          <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
+        </TouchableOpacity>
 
-      existingTasks.forEach(task => {
-        existingTaskIds.add(task.id);
-        // Also track by title for potential duplicates
-        if (task.title) {
-          existingTaskIds.add(`title:${task.title.toLowerCase()}`);
-        }
-      });
+        <View style={styles.titleContainer}>
+          <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
+            Notifications
+          </Text>
+          {unreadCount > 0 && (
+            <View style={[styles.badge, { backgroundColor: theme.colors.error }]}>
+              <Text style={styles.badgeText}>{unreadCount}</Text>
+            </View>
+          )}
+        </View>
 
-      await database.write(async () => {
-        for (const [index, serverTask] of validTasks.entries()) {
-          console.log(`📝 Processing task ${index + 1}/${validTasks.length}:`, {
-            _id: serverTask._id,
-            id: serverTask.id,
-            title: serverTask.title
-          });
+        <View style={styles.headerActions}>
+          {notifications.length > 0 && (
+            <>
+              <IconButton
+                icon={<Ionicons name="checkmark-done-outline" size={22} color={theme.colors.primary} />}
+                onPress={handleMarkAllRead}
+              />
+              <IconButton
+                icon={<Ionicons name="trash-outline" size={22} color={theme.colors.error} />}
+                onPress={handleClearAll}
+              />
+            </>
+          )}
+          <IconButton
+            icon={<Ionicons name="settings-outline" size={22} color={theme.colors.text} />}
+            onPress={() => navigation.navigate('NotificationSettings' as never)}
+          />
+        </View>
+      </View>
 
-          try {
-            // ✅ Fix: Check for existing task by ID or title
-            const titleKey = `title:${serverTask.title.toLowerCase()}`;
-
-            if (existingTaskIds.has(serverTask.id) || existingTaskIds.has(titleKey)) {
-              console.log(`🔄 Task already exists (skipping): ${serverTask.id} - ${serverTask.title}`);
-              continue;
-            }
-
-            console.log(`➕ Task not found in cache: ${serverTask.id}, will create new`);
-
-            // ✅ Fix: Create task with proper ID mapping
-            console.log(`📝 Creating new task: ${serverTask.id}`);
-
-            await database.get<TaskModel>('tasks').create((task) => {
-              // ✅ Important: Use server ID to avoid duplicates
-              task._raw.id = serverTask.id;
-              Object.assign(task, this.mapServerTaskToLocal(serverTask));
-            });
-
-            // Track this ID to avoid duplicates in this batch
-            existingTaskIds.add(serverTask.id);
-            existingTaskIds.add(titleKey);
-
-          } catch (taskError) {
-            console.error(`❌ Error processing task ${serverTask.id}:`, taskError);
-            // Continue with other tasks instead of failing the entire sync
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <SkeletonList count={5} component={SkeletonNotification} />
+        </View>
+      ) : (
+        <FlatList
+          data={notifications}
+          keyExtractor={(item) => item.id}
+          renderItem={renderNotification}
+          contentContainerStyle={[
+            styles.listContent,
+            notifications.length === 0 && styles.emptyList,
+          ]}
+          ListEmptyComponent={renderEmpty}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={theme.colors.primary}
+            />
           }
-        }
-      });
-
-      await this.refreshTaskStore();
-      console.log('✅ Pull complete successfully');
-    } catch (error) {
-      console.error('❌ Pull changes error:', error);
-      throw error;
-    }
-  }
-
-  private mapServerTaskToLocal(serverTask: any): Partial<TaskModel> {
-    return {
-      userId: serverTask.userId,
-      title: serverTask.title,
-      description: serverTask.description,
-      completed: Boolean(serverTask.completed),
-      startDate: serverTask.startDate ? new Date(serverTask.startDate) : undefined,
-      endDate: serverTask.endDate ? new Date(serverTask.endDate) : undefined,
-      duration: serverTask.duration ? Number(serverTask.duration) : undefined,
-      category: serverTask.category,
-      tags: Array.isArray(serverTask.tags) ? serverTask.tags : [],
-      priority: serverTask.priority || 'medium',
-      location: serverTask.location,
-      reminder: serverTask.reminder,
-      recurringPattern: serverTask.recurringPattern,
-      calendarEventId: serverTask.calendarEventId,
-      syncedAt: new Date(),
-    };
-  }
-
-  async addToSyncQueue(entityType: string, entityId: string, operation: 'create' | 'update' | 'delete', data: any) {
-    console.log(`📝 Adding to sync queue: ${operation} ${entityType} ${entityId}`);
-
-    try {
-      await database.write(async () => {
-        await database.get<SyncQueueModel>('sync_queue').create((record) => {
-          record.entityType = entityType;
-          record.entityId = entityId;
-          record.operation = operation;
-          record.data = data;
-          record.synced = false;
-        });
-      });
-
-      useSyncStore.getState().incrementPendingChanges();
-
-      // ✅ Fix: Trigger sync after a short delay to batch operations
-      const { token, refreshToken } = useAuthStore.getState();
-      if (this.isOnline && token && refreshToken && !this.isSyncing) {
-        setTimeout(() => this.sync(), 2000); // 2 second delay to batch operations
-      }
-    } catch (error) {
-      console.error('❌ Error adding to sync queue:', error);
-    }
-  }
-
-  private async refreshTaskStore() {
-    try {
-      console.log('🔄 Starting refreshTaskStore...');
-
-      const tasks = await database.get<TaskModel>('tasks').query().fetch();
-      console.log(`📊 Found ${tasks.length} tasks in local database`);
-
-      const mappedTasks = tasks.map((task, index) => {
-        console.log(`🗂️ Mapped task ${index + 1}: ${task.id} - ${task.title}`);
-
-        return {
-          id: task.id,
-          userId: task.userId,
-          title: task.title,
-          description: task.description,
-          completed: task.completed,
-          startDate: task.startDate,
-          endDate: task.endDate,
-          duration: task.duration,
-          category: task.category,
-          tags: task.tags,
-          priority: task.priority,
-          location: task.location,
-          reminder: task.reminder,
-          recurringPattern: task.recurringPattern,
-          calendarEventId: task.calendarEventId,
-          createdAt: task.createdAt,
-          updatedAt: task.updatedAt,
-          syncedAt: task.syncedAt,
-        };
-      });
-
-      console.log(`✅ Successfully mapped ${mappedTasks.length} tasks out of ${tasks.length}`);
-      useTaskStore.getState().setTasks(mappedTasks);
-      console.log(`🔄 Refreshed task store with ${mappedTasks.length} tasks`);
-    } catch (error) {
-      console.error('❌ Error refreshing task store:', error);
-    }
-  }
-
-  async forceSyncNow() {
-    console.log('🚀 Force sync requested');
-    await this.sync();
-  }
-
-  async clearDuplicates() {
-    console.log('🧹 Starting duplicate cleanup...');
-
-    try {
-      const tasks = await database.get<TaskModel>('tasks').query().fetch();
-      const titleMap = new Map<string, TaskModel[]>();
-
-      // Group by title
-      tasks.forEach(task => {
-        const key = task.title.toLowerCase().trim();
-        if (!titleMap.has(key)) {
-          titleMap.set(key, []);
-        }
-        titleMap.get(key)!.push(task);
-      });
-
-      // Find and remove duplicates
-      let duplicatesRemoved = 0;
-      await database.write(async () => {
-        for (const [title, duplicates] of titleMap) {
-          if (duplicates.length > 1) {
-            console.log(`🔍 Found ${duplicates.length} duplicates for: ${title}`);
-
-            // Keep the most recent one (by updatedAt)
-            duplicates.sort((a, b) => (b.updatedAt?.getTime() || 0) - (a.updatedAt?.getTime() || 0));
-            const toKeep = duplicates[0];
-            const toRemove = duplicates.slice(1);
-
-            for (const task of toRemove) {
-              console.log(`🗑️ Removing duplicate: ${task.id}`);
-              await task.markAsDeleted();
-              duplicatesRemoved++;
-            }
-          }
-        }
-      });
-
-      if (duplicatesRemoved > 0) {
-        await this.refreshTaskStore();
-        console.log(`✅ Removed ${duplicatesRemoved} duplicate tasks`);
-      } else {
-        console.log('✨ No duplicates found');
-      }
-
-    } catch (error) {
-      console.error('❌ Error cleaning duplicates:', error);
-    }
-  }
-
-  destroy() {
-    if (this.syncInterval) {
-      clearInterval(this.syncInterval);
-      this.syncInterval = null;
-    }
-    this.isSyncing = false;
-  }
+          showsVerticalScrollIndicator={false}
+        />
+      )}
+    </SafeAreaView>
+  );
 }
 
-export const syncService = new SyncService();
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+  },
+  backButton: {
+    padding: 4,
+  },
+  titleContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    minWidth: 20,
+    alignItems: 'center',
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  loadingContainer: {
+    padding: 16,
+  },
+  listContent: {
+    padding: 16,
+    gap: 12,
+  },
+  emptyList: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  notificationCard: {
+    marginBottom: 0,
+  },
+  notificationContent: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  textContainer: {
+    flex: 1,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  title: {
+    fontSize: 15,
+    fontWeight: '500',
+    flex: 1,
+  },
+  unread: {
+    fontWeight: '700',
+  },
+  unreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  body: {
+    fontSize: 14,
+    marginTop: 4,
+    lineHeight: 20,
+  },
+  time: {
+    fontSize: 12,
+    marginTop: 8,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 64,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 16,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    marginTop: 8,
+  },
+});

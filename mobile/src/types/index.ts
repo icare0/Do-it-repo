@@ -85,8 +85,11 @@ export type RootStackParamList = {
   Today: undefined;
   TaskList: undefined;
   TaskDetail: { taskId: string };
-  QuickAdd: undefined;
+  QuickAdd: { prefillText?: string } | undefined;
   Map: undefined;
   Calendar: undefined;
   Settings: undefined;
+  Notifications: undefined;
+  NotificationSettings: undefined;
+  FocusMode: { taskTitle?: string } | undefined;
 };
