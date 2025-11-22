@@ -7,11 +7,13 @@ import {
   Switch,
   TouchableOpacity,
   Alert,
+  Modal,
+  FlatList,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import DateTimePicker from '@react-native-community/datetimepicker';
 
 import { Card } from '@/components/ui/Card';
 import { useThemeStore } from '@/store/themeStore';
@@ -36,6 +38,11 @@ const RADIUS_OPTIONS = [
   { label: '500 mètres', value: 500 },
   { label: '1 kilomètre', value: 1000 },
 ];
+
+// Generate time options
+const TIME_OPTIONS = Array.from({ length: 24 }, (_, h) =>
+  ['00', '30'].map(m => `${h.toString().padStart(2, '0')}:${m}`)
+).flat();
 
 export default function NotificationSettingsScreen() {
   const navigation = useNavigation();
@@ -62,30 +69,34 @@ export default function NotificationSettingsScreen() {
     }
   };
 
-  const handleTimeChange = (type: 'briefing' | 'quietStart' | 'quietEnd', date?: Date) => {
-    if (date) {
-      const timeStr = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
-
-      switch (type) {
-        case 'briefing':
-          updateSettings({ dailyBriefingTime: timeStr });
-          break;
-        case 'quietStart':
-          updateSettings({ quietHoursStart: timeStr });
-          break;
-        case 'quietEnd':
-          updateSettings({ quietHoursEnd: timeStr });
-          break;
-      }
+  const handleTimeSelect = (type: 'briefing' | 'quietStart' | 'quietEnd', timeStr: string) => {
+    hapticsService.selection();
+    switch (type) {
+      case 'briefing':
+        updateSettings({ dailyBriefingTime: timeStr });
+        break;
+      case 'quietStart':
+        updateSettings({ quietHoursStart: timeStr });
+        break;
+      case 'quietEnd':
+        updateSettings({ quietHoursEnd: timeStr });
+        break;
     }
     setShowTimePicker(null);
   };
 
-  const parseTime = (timeStr: string): Date => {
-    const [hours, minutes] = timeStr.split(':').map(Number);
-    const date = new Date();
-    date.setHours(hours, minutes, 0, 0);
-    return date;
+  const getCurrentTimeForPicker = (): string => {
+    if (!showTimePicker) return '08:00';
+    switch (showTimePicker) {
+      case 'briefing':
+        return settings.dailyBriefingTime;
+      case 'quietStart':
+        return settings.quietHoursStart;
+      case 'quietEnd':
+        return settings.quietHoursEnd;
+      default:
+        return '08:00';
+    }
   };
 
   const showOptionsPicker = (
@@ -338,21 +349,61 @@ export default function NotificationSettingsScreen() {
       </ScrollView>
 
       {/* Time Picker Modal */}
-      {showTimePicker && (
-        <DateTimePicker
-          value={parseTime(
-            showTimePicker === 'briefing'
-              ? settings.dailyBriefingTime
-              : showTimePicker === 'quietStart'
-              ? settings.quietHoursStart
-              : settings.quietHoursEnd
-          )}
-          mode="time"
-          is24Hour={true}
-          display="spinner"
-          onChange={(_, date) => handleTimeChange(showTimePicker, date)}
-        />
-      )}
+      <Modal
+        visible={showTimePicker !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowTimePicker(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
+                {showTimePicker === 'briefing'
+                  ? 'Heure du briefing'
+                  : showTimePicker === 'quietStart'
+                  ? 'Début des heures silencieuses'
+                  : 'Fin des heures silencieuses'}
+              </Text>
+              <TouchableOpacity onPress={() => setShowTimePicker(null)}>
+                <Ionicons name="close" size={24} color={theme.colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={TIME_OPTIONS}
+              keyExtractor={(item) => item}
+              style={styles.timeList}
+              initialScrollIndex={TIME_OPTIONS.indexOf(getCurrentTimeForPicker())}
+              getItemLayout={(_, index) => ({ length: 50, offset: 50 * index, index })}
+              renderItem={({ item }) => {
+                const isSelected = item === getCurrentTimeForPicker();
+                return (
+                  <TouchableOpacity
+                    style={[
+                      styles.timeOption,
+                      isSelected && { backgroundColor: `${theme.colors.primary}15` },
+                    ]}
+                    onPress={() => showTimePicker && handleTimeSelect(showTimePicker, item)}
+                  >
+                    <Text
+                      style={[
+                        styles.timeOptionText,
+                        { color: isSelected ? theme.colors.primary : theme.colors.text },
+                        isSelected && { fontWeight: '700' },
+                      ]}
+                    >
+                      {item}
+                    </Text>
+                    {isSelected && (
+                      <Ionicons name="checkmark" size={20} color={theme.colors.primary} />
+                    )}
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -435,5 +486,41 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     lineHeight: 18,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '60%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.1)',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  timeList: {
+    flex: 1,
+  },
+  timeOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    height: 50,
+  },
+  timeOptionText: {
+    fontSize: 18,
   },
 });

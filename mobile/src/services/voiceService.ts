@@ -1,30 +1,24 @@
-import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { nlpService } from './nlpService';
 
 const WHISPER_API_KEY = 'WHISPER_API_KEY';
-const RECORDING_OPTIONS = {
-  android: {
-    extension: '.m4a',
-    outputFormat: Audio.AndroidOutputFormat.MPEG_4,
-    audioEncoder: Audio.AndroidAudioEncoder.AAC,
-    sampleRate: 16000,
-    numberOfChannels: 1,
-    bitRate: 128000,
-  },
-  ios: {
-    extension: '.m4a',
-    audioQuality: Audio.IOSAudioQuality.HIGH,
-    sampleRate: 16000,
-    numberOfChannels: 1,
-    bitRate: 128000,
-    linearPCMBitDepth: 16,
-    linearPCMIsBigEndian: false,
-    linearPCMIsFloat: false,
-  },
-  web: {},
-};
+
+// Dynamic import to handle missing native module
+let Audio: typeof import('expo-av').Audio | null = null;
+
+async function loadAudio() {
+  try {
+    const expoAv = await import('expo-av');
+    Audio = expoAv.Audio;
+  } catch (error) {
+    console.warn('expo-av not available (requires dev build)');
+    Audio = null;
+  }
+}
+
+// Initialize on module load
+loadAudio();
 
 export interface VoiceTranscription {
   text: string;
@@ -33,7 +27,7 @@ export interface VoiceTranscription {
 }
 
 class VoiceService {
-  private recording: Audio.Recording | null = null;
+  private recording: any = null;
   private apiKey: string | null = null;
 
   async initialize(): Promise<void> {
@@ -49,7 +43,15 @@ class VoiceService {
     await AsyncStorage.setItem(WHISPER_API_KEY, apiKey);
   }
 
+  isAvailable(): boolean {
+    return Audio !== null;
+  }
+
   async requestPermissions(): Promise<boolean> {
+    if (!Audio) {
+      console.warn('Audio not available');
+      return false;
+    }
     try {
       const { granted } = await Audio.requestPermissionsAsync();
       return granted;
@@ -60,6 +62,11 @@ class VoiceService {
   }
 
   async startRecording(): Promise<boolean> {
+    if (!Audio) {
+      console.warn('Audio not available (requires dev build)');
+      return false;
+    }
+
     try {
       const hasPermission = await this.requestPermissions();
       if (!hasPermission) {
@@ -75,7 +82,27 @@ class VoiceService {
 
       // Create and start recording
       const recording = new Audio.Recording();
-      await recording.prepareToRecordAsync(RECORDING_OPTIONS);
+      await recording.prepareToRecordAsync({
+        android: {
+          extension: '.m4a',
+          outputFormat: 2, // MPEG_4
+          audioEncoder: 3, // AAC
+          sampleRate: 16000,
+          numberOfChannels: 1,
+          bitRate: 128000,
+        },
+        ios: {
+          extension: '.m4a',
+          audioQuality: 127, // HIGH
+          sampleRate: 16000,
+          numberOfChannels: 1,
+          bitRate: 128000,
+          linearPCMBitDepth: 16,
+          linearPCMIsBigEndian: false,
+          linearPCMIsFloat: false,
+        },
+        web: {},
+      });
       await recording.startAsync();
 
       this.recording = recording;
@@ -87,6 +114,8 @@ class VoiceService {
   }
 
   async stopRecording(): Promise<string | null> {
+    if (!Audio) return null;
+
     try {
       if (!this.recording) {
         console.warn('No active recording');

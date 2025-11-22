@@ -27,8 +27,21 @@ export function VoiceButton({ onTranscription, size = 'medium', style }: VoiceBu
   const [isProcessing, setIsProcessing] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [transcribedText, setTranscribedText] = useState('');
+  const [isAvailable, setIsAvailable] = useState(false);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const waveAnim = useRef(new Animated.Value(0)).current;
+
+  // Check if voice service is available
+  useEffect(() => {
+    const checkAvailability = async () => {
+      await voiceService.initialize();
+      // Small delay to allow dynamic imports to complete
+      setTimeout(() => {
+        setIsAvailable(voiceService.isAvailable());
+      }, 500);
+    };
+    checkAvailability();
+  }, []);
 
   const sizeStyles = {
     small: { button: 40, icon: 20 },
@@ -135,6 +148,11 @@ export function VoiceButton({ onTranscription, size = 'medium', style }: VoiceBu
     inputRange: [0, 1],
     outputRange: [1, 2],
   });
+
+  // Don't render if voice service is not available
+  if (!isAvailable) {
+    return null;
+  }
 
   return (
     <>
