@@ -7,6 +7,7 @@ import {
   Animated,
   AppState,
   AppStateStatus,
+  NativeModules,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -31,30 +32,44 @@ const AMBIENT_SOUNDS = {
   waves: 'https://assets.mixkit.co/active_storage/sfx/529/529-preview.mp3',
 };
 
+// Check if native modules exist WITHOUT triggering errors
+const isExpoAvAvailable = (): boolean => {
+  try {
+    return !!NativeModules.ExponentAV;
+  } catch {
+    return false;
+  }
+};
+
+const isKeepAwakeAvailable = (): boolean => {
+  try {
+    return !!NativeModules.ExpoKeepAwake;
+  } catch {
+    return false;
+  }
+};
+
 // Dynamic imports for native modules
 let keepAwakeModule: any = null;
 let audioModule: any = null;
 
 async function loadNativeModules() {
-  // Load expo-keep-awake
-  try {
-    const ka = await import('expo-keep-awake');
-    if (ka.activateKeepAwakeAsync) {
-      keepAwakeModule = ka;
+  // Load expo-keep-awake only if native module exists
+  if (isKeepAwakeAvailable()) {
+    try {
+      keepAwakeModule = await import('expo-keep-awake');
+    } catch {
+      // Silently fail
     }
-  } catch {
-    // Silently fail
   }
 
-  // Load expo-av with native module check
-  try {
-    const av = await import('expo-av');
-    if (av.Audio && typeof av.Audio.setAudioModeAsync === 'function') {
-      await av.Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-      audioModule = av;
+  // Load expo-av only if native module exists
+  if (isExpoAvAvailable()) {
+    try {
+      audioModule = await import('expo-av');
+    } catch {
+      // Silently fail
     }
-  } catch {
-    // Silently fail - native module not available
   }
 }
 
