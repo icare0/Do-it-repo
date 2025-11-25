@@ -2,6 +2,10 @@ import { Response } from 'express';
 import Task from '../models/Task';
 import { AuthRequest } from '../types';
 import logger from '../config/logger';
+import nlpService from '../services/nlpService';
+import cacheService from '../services/cacheService';
+import geofenceService from '../services/geofenceService';
+import gamificationService from '../services/gamificationService';
 
 export const getTasks = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -91,29 +95,61 @@ export const createTask = async (req: AuthRequest, res: Response): Promise<void>
     }
 
     // ✅ Validate required fields
-    const { title, priority = 'medium' } = req.body;
+    let { title, priority = 'medium', useNLP = false } = req.body;
 
     if (!title || typeof title !== 'string') {
       res.status(400).json({ message: 'Title is required and must be a string' });
       return;
     }
 
-    const taskData = {
+    let taskData: any = {
       ...req.body,
       userId: req.user.id,
       priority,
       completed: Boolean(req.body.completed),
     };
 
-    // ✅ Convert date strings to Date objects
-    if (req.body.startDate) {
-      taskData.startDate = new Date(req.body.startDate);
+    // Si useNLP est activé, parser le titre avec le service NLP
+    if (useNLP && !req.body.startDate) {
+      const timezone = req.user.timezone || 'Europe/Paris';
+      const parsed = nlpService.parseTask(title, timezone);
+
+      // Fusionner les données parsées avec les données existantes
+      taskData = {
+        ...taskData,
+        ...parsed,
+        // Les données fournies explicitement ont priorité sur le parsing
+        title: parsed.title || title,
+      };
+
+      logger.info(`📝 NLP parsing result:`, parsed);
     }
-    if (req.body.endDate) {
-      taskData.endDate = new Date(req.body.endDate);
+
+    // ✅ Convert date strings to Date objects
+    if (taskData.startDate && typeof taskData.startDate === 'string') {
+      taskData.startDate = new Date(taskData.startDate);
+    }
+    if (taskData.endDate && typeof taskData.endDate === 'string') {
+      taskData.endDate = new Date(taskData.endDate);
     }
 
     const task = await Task.create(taskData);
+
+    // Si la tâche a un rappel de localisation, créer un geofence
+    if (task.reminder?.type === 'location' && task.location?.latitude && task.location?.longitude) {
+      await geofenceService.createGeofence({
+        taskId: task._id.toString(),
+        userId: req.user.id,
+        latitude: task.location.latitude,
+        longitude: task.location.longitude,
+        radius: task.location.radius || 100,
+        notifyOnEnter: true,
+        notifyOnExit: false,
+      });
+    }
+
+    // Invalider le cache
+    await cacheService.invalidateUserTasksCache(req.user.id);
 
     res.status(201).json({ task });
   } catch (error) {
@@ -129,7 +165,7 @@ export const updateTask = async (req: AuthRequest, res: Response): Promise<void>
       return;
     }
 
-    const updateData = { ...req.body };
+    const updateData = { ...req.body, version: { $inc: 1 } };
 
     // ✅ Convert date strings to Date objects
     if (updateData.startDate) {
@@ -150,6 +186,9 @@ export const updateTask = async (req: AuthRequest, res: Response): Promise<void>
       return;
     }
 
+    // Invalider le cache
+    await cacheService.invalidateUserTasksCache(req.user.id);
+
     res.json({ task });
   } catch (error) {
     logger.error('Update task error:', error);
@@ -164,15 +203,20 @@ export const deleteTask = async (req: AuthRequest, res: Response): Promise<void>
       return;
     }
 
-    const task = await Task.findOneAndDelete({
-      _id: req.params.id,
-      userId: req.user.id,
-    });
+    // Soft delete : marquer comme supprimé au lieu de supprimer réellement
+    const task = await Task.findOneAndUpdate(
+      { _id: req.params.id, userId: req.user.id },
+      { $set: { deletedAt: new Date() } },
+      { new: true }
+    );
 
     if (!task) {
       res.status(404).json({ message: 'Task not found' });
       return;
     }
+
+    // Invalider le cache
+    await cacheService.invalidateUserTasksCache(req.user.id);
 
     res.json({ message: 'Task deleted successfully' });
   } catch (error) {
@@ -201,13 +245,53 @@ export const toggleTaskCompletion = async (
       return;
     }
 
+    const wasCompleted = task.completed;
     task.completed = !task.completed;
+    task.completedAt = task.completed ? new Date() : undefined;
     await task.save();
+
+    // Si la tâche vient d'être complétée, mettre à jour la gamification
+    if (!wasCompleted && task.completed) {
+      await gamificationService.onTaskCompleted(req.user.id, task);
+    }
+
+    // Invalider le cache
+    await cacheService.invalidateUserTasksCache(req.user.id);
 
     res.json({ task });
   } catch (error) {
     logger.error('Toggle task error:', error);
     res.status(500).json({ message: 'Failed to toggle task' });
+  }
+};
+
+/**
+ * Parse du texte en langage naturel
+ */
+export const parseNaturalLanguage = async (
+  req: AuthRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ message: 'Unauthorized' });
+      return;
+    }
+
+    const { text } = req.body;
+
+    if (!text || typeof text !== 'string') {
+      res.status(400).json({ message: 'Text is required' });
+      return;
+    }
+
+    const timezone = req.user.timezone || 'Europe/Paris';
+    const parsed = nlpService.parseTask(text, timezone);
+
+    res.json({ parsed });
+  } catch (error) {
+    logger.error('Parse NLP error:', error);
+    res.status(500).json({ message: 'Failed to parse text' });
   }
 };
 

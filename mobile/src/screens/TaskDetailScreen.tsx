@@ -1,16 +1,16 @@
-import React, { useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity, Dimensions } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useRef, useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity, Dimensions, Platform, StatusBar, TextInput, KeyboardAvoidingView } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import MapView, { Marker } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
+import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 
 import { Button } from '@/components/ui/Button';
-import { IconButton } from '@/components/ui/IconButton';
-import { Badge } from '@/components/ui/Badge';
-import { Card } from '@/components/ui/Card';
 import { useThemeStore } from '@/store/themeStore';
 import { useTaskStore } from '@/store/taskStore';
 import { getTheme } from '@/theme';
@@ -22,6 +22,7 @@ const { width } = Dimensions.get('window');
 export default function TaskDetailScreen() {
   const navigation = useNavigation();
   const route = useRoute();
+  const insets = useSafeAreaInsets();
   const { colorScheme } = useThemeStore();
   const theme = getTheme(colorScheme);
   const { tasks, updateTask, deleteTask, toggleTaskCompletion } = useTaskStore();
@@ -30,9 +31,35 @@ export default function TaskDetailScreen() {
   const taskId = (route.params as any)?.taskId;
   const task = tasks.find(t => t.id === taskId);
 
-  if (!task) {
-    return null;
-  }
+  const [title, setTitle] = useState(task?.title || '');
+  const [description, setDescription] = useState(task?.description || '');
+
+  useEffect(() => {
+    if (task) {
+      setTitle(task.title);
+      setDescription(task.description || '');
+    }
+  }, [task]);
+
+  if (!task) return null;
+
+  const isDark = colorScheme === 'dark';
+
+  const handleUpdate = (updates: any) => {
+    updateTask(task.id, updates);
+  };
+
+  const handleTitleBlur = () => {
+    if (title.trim() !== task.title) {
+      handleUpdate({ title: title.trim() });
+    }
+  };
+
+  const handleDescriptionBlur = () => {
+    if (description.trim() !== (task.description || '')) {
+      handleUpdate({ description: description.trim() });
+    }
+  };
 
   async function handleDelete() {
     Alert.alert('Supprimer', 'Êtes-vous sûr de vouloir supprimer cette tâche ?', [
@@ -54,383 +81,315 @@ export default function TaskDetailScreen() {
   }
 
   async function handleToggleComplete() {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     await toggleTaskCompletion(task.id);
-    // Automatically go back after marking as complete
     if (!task.completed) {
-      setTimeout(() => {
-        navigation.goBack();
-      }, 300);
+      setTimeout(() => navigation.goBack(), 500);
     }
   }
 
-  function getPriorityColor() {
-    switch (task.priority) {
-      case 'high':
-        return theme.colors.error;
-      case 'low':
-        return theme.colors.success;
-      default:
-        return theme.colors.warning;
-    }
-  }
+  const Group = ({ children, title }: { children: React.ReactNode, title?: string }) => (
+    <View style={styles.groupContainer}>
+      {title && <Text style={[styles.groupTitle, { color: theme.colors.textSecondary }]}>{title}</Text>}
+      <View style={[styles.group, { backgroundColor: theme.colors.card }]}>
+        {children}
+      </View>
+    </View>
+  );
 
-  function getPriorityLabel() {
-    switch (task.priority) {
-      case 'high':
-        return 'Haute';
-      case 'low':
-        return 'Basse';
-      default:
-        return 'Moyenne';
-    }
-  }
+  const DetailRow = ({ icon, label, value, color, isLast, onPress }: any) => (
+    <TouchableOpacity
+      onPress={onPress}
+      disabled={!onPress}
+      style={[styles.detailRow, !isLast && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.colors.border }]}
+    >
+      <View style={[styles.iconBox, { backgroundColor: color + '20' }]}>
+        <Ionicons name={icon} size={20} color={color} />
+      </View>
+      <Text style={[styles.detailLabel, { color: theme.colors.text }]}>{label}</Text>
+      <View style={styles.detailValueContainer}>
+        <Text style={[styles.detailValue, { color: theme.colors.textSecondary }]}>{value}</Text>
+        {onPress && <Ionicons name="chevron-forward" size={16} color={theme.colors.textSecondary} style={{ marginLeft: 4 }} />}
+      </View>
+    </TouchableOpacity>
+  );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
-      {/* Header */}
-      <View style={[styles.header, { borderBottomColor: theme.colors.border }]}>
-        <IconButton
-          icon={<Ionicons name="arrow-back" size={24} color={theme.colors.text} />}
+    <View style={[styles.container, { backgroundColor: theme.colors.backgroundSecondary }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+
+      {/* Custom Header */}
+      <View style={[styles.header, { paddingTop: insets.top, backgroundColor: theme.colors.backgroundSecondary }]}>
+        <TouchableOpacity
           onPress={() => navigation.goBack()}
-        />
-        <View style={styles.headerActions}>
-          <IconButton
-            icon={<Ionicons name="create-outline" size={24} color={theme.colors.text} />}
-            onPress={() => {
-              // TODO: Navigate to edit screen
-              Alert.alert('Modification', 'Fonctionnalité à venir');
-            }}
-          />
-          <IconButton
-            icon={<Ionicons name="trash-outline" size={24} color={theme.colors.error} />}
-            onPress={handleDelete}
-          />
-        </View>
+          style={styles.headerButton}
+        >
+          <Ionicons name="chevron-back" size={28} color={theme.colors.primary} />
+          <Text style={[styles.headerButtonText, { color: theme.colors.primary }]}>Retour</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={handleDelete}
+          style={styles.headerButton}
+        >
+          <Ionicons name="trash-outline" size={24} color={theme.colors.error} />
+        </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Title Section */}
-        <View style={styles.titleSection}>
-          <Text style={[styles.title, { color: theme.colors.text }]}>{task.title}</Text>
-          {task.completed && (
-            <View style={[styles.completedBadge, { backgroundColor: `${theme.colors.success}15` }]}>
-              <Ionicons name="checkmark-circle" size={20} color={theme.colors.success} />
-              <Text style={[styles.completedText, { color: theme.colors.success }]}>Terminée</Text>
-            </View>
-          )}
-        </View>
-
-        {/* Description */}
-        {task.description && (
-          <Card variant="flat" style={styles.descriptionCard}>
-            <Text style={[styles.description, { color: theme.colors.textSecondary }]}>
-              {task.description}
-            </Text>
-          </Card>
-        )}
-
-        {/* Info Cards */}
-        <View style={styles.infoGrid}>
-          {/* Date & Time */}
-          {task.startDate && (
-            <Card variant="elevated" style={styles.infoCard}>
-              <View style={[styles.iconCircle, { backgroundColor: `${theme.colors.primary}15` }]}>
-                <Ionicons name="calendar" size={24} color={theme.colors.primary} />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>Date & Heure</Text>
-                <Text style={[styles.infoValue, { color: theme.colors.text }]}>
-                  {format(task.startDate, 'EEEE d MMMM', { locale: fr })}
-                </Text>
-                <Text style={[styles.infoSubValue, { color: theme.colors.textSecondary }]}>
-                  {format(task.startDate, 'HH:mm')}
-                </Text>
-              </View>
-            </Card>
-          )}
-
-          {/* Priority */}
-          <Card variant="elevated" style={styles.infoCard}>
-            <View style={[styles.iconCircle, { backgroundColor: `${getPriorityColor()}15` }]}>
-              <Ionicons name="flag" size={24} color={getPriorityColor()} />
-            </View>
-            <View style={styles.infoContent}>
-              <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>Priorité</Text>
-              <Text style={[styles.infoValue, { color: theme.colors.text }]}>
-                {getPriorityLabel()}
-              </Text>
-            </View>
-          </Card>
-
-          {/* Category */}
-          {task.category && (
-            <Card variant="elevated" style={styles.infoCard}>
-              <View style={[styles.iconCircle, { backgroundColor: `${theme.colors.secondary}15` }]}>
-                <Ionicons name="pricetag" size={24} color={theme.colors.secondary} />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>Catégorie</Text>
-                <Text style={[styles.infoValue, { color: theme.colors.text }]}>
-                  {task.category}
-                </Text>
-              </View>
-            </Card>
-          )}
-
-          {/* Duration */}
-          {task.duration && (
-            <Card variant="elevated" style={styles.infoCard}>
-              <View style={[styles.iconCircle, { backgroundColor: `${theme.colors.info}15` }]}>
-                <Ionicons name="time" size={24} color={theme.colors.info} />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>Durée</Text>
-                <Text style={[styles.infoValue, { color: theme.colors.text }]}>
-                  {task.duration >= 60
-                    ? `${Math.floor(task.duration / 60)}h ${task.duration % 60 > 0 ? `${task.duration % 60}min` : ''}`
-                    : `${task.duration} min`}
-                </Text>
-              </View>
-            </Card>
-          )}
-        </View>
-
-        {/* Location Map */}
-        {task.location && (
-          <Card variant="elevated" style={styles.mapCard}>
-            <View style={styles.mapHeader}>
-              <View style={[styles.iconCircle, { backgroundColor: `${theme.colors.warning}15` }]}>
-                <Ionicons name="location" size={24} color={theme.colors.warning} />
-              </View>
-              <View style={styles.mapHeaderText}>
-                <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>Lieu</Text>
-                <Text style={[styles.infoValue, { color: theme.colors.text }]}>
-                  {task.location.name}
-                </Text>
-              </View>
-              <TouchableOpacity
-                style={[styles.directionButton, { backgroundColor: theme.colors.primary }]}
-                onPress={() => {
-                  // Open directions in maps app
-                  const url = `https://www.google.com/maps/dir/?api=1&destination=${task.location!.latitude},${task.location!.longitude}`;
-                  Alert.alert('Itinéraire', 'Ouverture de l\'itinéraire...');
-                }}
-              >
-                <Ionicons name="navigate" size={20} color="#fff" />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
+        <ScrollView
+          contentContainerStyle={[styles.content, { paddingBottom: 100 + insets.bottom }]}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Title Input */}
+          <View style={[styles.titleContainer, { backgroundColor: theme.colors.card }]}>
+            <View style={styles.checkboxContainer}>
+              <TouchableOpacity onPress={handleToggleComplete}>
+                <Ionicons
+                  name={task.completed ? "checkmark-circle" : "ellipse-outline"}
+                  size={28}
+                  color={task.completed ? theme.colors.success : theme.colors.textSecondary}
+                />
               </TouchableOpacity>
             </View>
+            <TextInput
+              style={[styles.titleInput, { color: theme.colors.text }]}
+              value={title}
+              onChangeText={setTitle}
+              onBlur={handleTitleBlur}
+              placeholder="Titre de la tâche"
+              placeholderTextColor={theme.colors.textSecondary}
+              multiline
+              scrollEnabled={false}
+            />
+          </View>
 
-            <View style={styles.mapContainer}>
-              <MapView
-                ref={mapRef}
-                style={styles.map}
-                initialRegion={{
-                  latitude: task.location.latitude,
-                  longitude: task.location.longitude,
-                  latitudeDelta: 0.01,
-                  longitudeDelta: 0.01,
-                }}
-                scrollEnabled={false}
-                zoomEnabled={false}
-                pitchEnabled={false}
-                rotateEnabled={false}
-              >
-                <Marker
-                  coordinate={{
+          {/* Details Group */}
+          <Group title="DÉTAILS">
+            <DetailRow
+              icon="calendar"
+              label="Date"
+              value={task.startDate ? format(new Date(task.startDate), 'd MMM yyyy', { locale: fr }) : 'Aucune'}
+              color={theme.colors.primary}
+              onPress={() => { /* TODO: Date Picker */ }}
+            />
+            <DetailRow
+              icon="time"
+              label="Heure"
+              value={task.startDate ? format(new Date(task.startDate), 'HH:mm') : '--:--'}
+              color={theme.colors.info}
+              onPress={() => { /* TODO: Time Picker */ }}
+            />
+            <DetailRow
+              icon="flag"
+              label="Priorité"
+              value={task.priority === 'high' ? 'Urgent' : task.priority === 'low' ? 'Faible' : 'Normal'}
+              color={task.priority === 'high' ? theme.colors.error : theme.colors.warning}
+              isLast
+              onPress={() => {
+                const nextPriority = task.priority === 'low' ? 'medium' : task.priority === 'medium' ? 'high' : 'low';
+                handleUpdate({ priority: nextPriority });
+              }}
+            />
+          </Group>
+
+          {/* Notes Group */}
+          <Group title="NOTES">
+            <TextInput
+              style={[styles.notesInput, { color: theme.colors.text }]}
+              value={description}
+              onChangeText={setDescription}
+              onBlur={handleDescriptionBlur}
+              placeholder="Ajouter des notes..."
+              placeholderTextColor={theme.colors.textSecondary}
+              multiline
+              scrollEnabled={false}
+            />
+          </Group>
+
+          {/* Location Map */}
+          {task.location && (
+            <Group title="LIEU">
+              <View style={styles.mapContainer}>
+                <MapView
+                  ref={mapRef}
+                  style={styles.map}
+                  initialRegion={{
                     latitude: task.location.latitude,
                     longitude: task.location.longitude,
+                    latitudeDelta: 0.005,
+                    longitudeDelta: 0.005,
                   }}
-                  title={task.location.name}
-                />
-              </MapView>
-            </View>
-
-            {task.location.address && (
-              <View style={styles.addressContainer}>
-                <Ionicons name="location-outline" size={16} color={theme.colors.textSecondary} />
-                <Text style={[styles.addressText, { color: theme.colors.textSecondary }]}>
-                  {task.location.address}
-                </Text>
+                  scrollEnabled={false}
+                  zoomEnabled={false}
+                >
+                  <Marker
+                    coordinate={{
+                      latitude: task.location.latitude,
+                      longitude: task.location.longitude,
+                    }}
+                  />
+                </MapView>
+                <TouchableOpacity
+                  style={[styles.mapOverlay, { backgroundColor: theme.colors.card }]}
+                  onPress={() => {
+                    const url = `https://www.google.com/maps/dir/?api=1&destination=${task.location!.latitude},${task.location!.longitude}`;
+                    Alert.alert('Itinéraire', 'Ouverture de l\'itinéraire...');
+                  }}
+                >
+                  <View style={styles.mapInfo}>
+                    <Text style={[styles.mapTitle, { color: theme.colors.text }]}>{task.location.name}</Text>
+                    {task.location.address && (
+                      <Text style={[styles.mapAddress, { color: theme.colors.textSecondary }]} numberOfLines={1}>
+                        {task.location.address}
+                      </Text>
+                    )}
+                  </View>
+                  <View style={[styles.navButton, { backgroundColor: theme.colors.primary }]}>
+                    <Ionicons name="navigate" size={20} color="#FFF" />
+                  </View>
+                </TouchableOpacity>
               </View>
-            )}
-          </Card>
-        )}
+            </Group>
+          )}
 
-        {/* Recurring Pattern */}
-        {task.recurringPattern && (
-          <Card variant="elevated" style={styles.recurringCard}>
-            <View style={[styles.iconCircle, { backgroundColor: `${theme.colors.secondary}15` }]}>
-              <Ionicons name="repeat" size={24} color={theme.colors.secondary} />
-            </View>
-            <View style={styles.infoContent}>
-              <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>Récurrence</Text>
-              <Text style={[styles.infoValue, { color: theme.colors.text }]}>
-                {task.recurringPattern.frequency === 'daily' && 'Quotidien'}
-                {task.recurringPattern.frequency === 'weekly' && 'Hebdomadaire'}
-                {task.recurringPattern.frequency === 'monthly' && 'Mensuel'}
-                {task.recurringPattern.frequency === 'yearly' && 'Annuel'}
-              </Text>
-            </View>
-          </Card>
-        )}
-
-        {/* Spacer for button */}
-        <View style={{ height: 100 }} />
-      </ScrollView>
-
-      {/* Complete Button */}
-      <View style={[styles.footer, { backgroundColor: theme.colors.background, borderTopColor: theme.colors.border }]}>
-        <Button
-          title={task.completed ? 'Marquer comme non terminée' : 'Marquer comme terminée'}
-          onPress={handleToggleComplete}
-          variant={task.completed ? 'outline' : 'primary'}
-          fullWidth
-          icon={
-            <Ionicons
-              name={task.completed ? 'close-circle-outline' : 'checkmark-circle'}
-              size={20}
-              color={task.completed ? theme.colors.text : '#fff'}
-            />
-          }
-        />
-      </View>
-    </SafeAreaView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: {
+    flex: 1,
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
+    paddingBottom: 12,
+    zIndex: 10,
   },
-  headerActions: {
+  headerButton: {
     flexDirection: 'row',
-    gap: 8,
+    alignItems: 'center',
+    padding: 8,
+  },
+  headerButtonText: {
+    fontSize: 17,
+    marginLeft: 4,
   },
   content: {
-    paddingHorizontal: 20,
-    paddingTop: 24,
-    paddingBottom: 32,
+    paddingTop: 20,
   },
-  titleSection: {
-    marginBottom: 24,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: '700',
-    lineHeight: 40,
-    marginBottom: 12,
-  },
-  completedBadge: {
+  titleContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    alignSelf: 'flex-start',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  completedText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  descriptionCard: {
-    marginBottom: 24,
-  },
-  description: {
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  infoGrid: {
-    gap: 12,
-    marginBottom: 24,
-  },
-  infoCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  iconCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  infoContent: {
-    flex: 1,
-  },
-  infoLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 4,
-  },
-  infoValue: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  infoSubValue: {
-    fontSize: 14,
-  },
-  mapCard: {
-    padding: 0,
-    overflow: 'hidden',
-    marginBottom: 24,
-  },
-  mapHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+    alignItems: 'flex-start',
     padding: 16,
+    marginBottom: 24,
+    marginHorizontal: 16,
+    borderRadius: 12,
   },
-  mapHeaderText: {
+  checkboxContainer: {
+    marginRight: 12,
+    marginTop: 4,
+  },
+  titleInput: {
     flex: 1,
+    fontSize: 20,
+    fontWeight: '600',
+    paddingTop: 0,
   },
-  directionButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  groupContainer: {
+    marginBottom: 24,
+    paddingHorizontal: 16,
+  },
+  groupTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 8,
+    marginLeft: 16,
+    textTransform: 'uppercase',
+  },
+  group: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    minHeight: 56,
+  },
+  iconBox: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 12,
+  },
+  detailLabel: {
+    fontSize: 16,
+    flex: 1,
+  },
+  detailValueContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  detailValue: {
+    fontSize: 16,
+  },
+  notesInput: {
+    padding: 16,
+    fontSize: 16,
+    minHeight: 100,
+    textAlignVertical: 'top',
   },
   mapContainer: {
     height: 200,
-    width: '100%',
+    borderRadius: 12,
+    overflow: 'hidden',
+    position: 'relative',
   },
   map: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
   },
-  addressContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    padding: 16,
-  },
-  addressText: {
-    fontSize: 14,
-    flex: 1,
-  },
-  recurringCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    marginBottom: 24,
-  },
-  footer: {
+  mapOverlay: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderTopWidth: 1,
+    bottom: 12,
+    left: 12,
+    right: 12,
+    borderRadius: 12,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  mapInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
+  mapTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  mapAddress: {
+    fontSize: 13,
+  },
+  navButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

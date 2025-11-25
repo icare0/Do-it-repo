@@ -1,19 +1,38 @@
 import * as FileSystem from 'expo-file-system';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform, NativeModules } from 'react-native';
 import { nlpService } from './nlpService';
 
 const WHISPER_API_KEY = 'WHISPER_API_KEY';
 
+// Check if native module exists WITHOUT triggering an import
+const isExpoAvAvailable = (): boolean => {
+  try {
+    // Check if the native module is registered
+    return !!NativeModules.ExponentAV;
+  } catch {
+    return false;
+  }
+};
+
 // Dynamic import to handle missing native module
 let Audio: typeof import('expo-av').Audio | null = null;
+let audioAvailable = false;
 
 async function loadAudio() {
+  // First check if native module exists
+  if (!isExpoAvAvailable()) {
+    audioAvailable = false;
+    return;
+  }
+
   try {
     const expoAv = await import('expo-av');
     Audio = expoAv.Audio;
-  } catch (error) {
-    console.warn('expo-av not available (requires dev build)');
+    audioAvailable = true;
+  } catch {
     Audio = null;
+    audioAvailable = false;
   }
 }
 

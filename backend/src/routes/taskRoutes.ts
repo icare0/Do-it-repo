@@ -29,4 +29,10 @@ router.patch('/:id/toggle', taskController.toggleTaskCompletion);
 
 router.post('/sync', taskController.syncTasks);
 
+router.post(
+  '/parse',
+  validate([body('text').trim().notEmpty().withMessage('Text is required')]),
+  taskController.parseNaturalLanguage
+);
+
 export default router;

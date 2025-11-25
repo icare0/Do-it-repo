@@ -36,6 +36,40 @@ const userSchema = new Schema<IUser>(
         type: String,
       },
     ],
+    googleRefreshToken: {
+      type: String,
+      select: false,
+    },
+    googleCalendarSyncToken: {
+      type: String,
+      select: false,
+    },
+    fcmToken: {
+      type: String,
+      select: false,
+    },
+    timezone: {
+      type: String,
+      default: 'Europe/Paris',
+    },
+    preferences: {
+      language: {
+        type: String,
+        default: 'fr',
+      },
+      notificationsEnabled: {
+        type: Boolean,
+        default: true,
+      },
+      geofenceNotificationsEnabled: {
+        type: Boolean,
+        default: true,
+      },
+      defaultTaskDuration: {
+        type: Number,
+        default: 60, // en minutes
+      },
+    },
   },
   {
     timestamps: true,

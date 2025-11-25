@@ -1,64 +1,159 @@
-import React from 'react';
-import { View, Text, StyleSheet, FlatList } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, FlatList, ScrollView, TouchableOpacity, Dimensions, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import Animated, { FadeInDown, Layout } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
 
-import { Card } from '@/components/ui/Card';
-import { Checkbox } from '@/components/ui/Checkbox';
-import { Input } from '@/components/ui/Input';
-import { Badge } from '@/components/ui/Badge';
+import { PremiumTaskItem } from '@/components/PremiumTaskItem';
 import { useThemeStore } from '@/store/themeStore';
 import { useTaskStore } from '@/store/taskStore';
+import { useUserStore } from '@/store/userStore';
 import { getTheme } from '@/theme';
+
+const { width } = Dimensions.get('window');
 
 export default function TaskListScreen() {
   const navigation = useNavigation();
   const { colorScheme } = useThemeStore();
   const theme = getTheme(colorScheme);
-  const { tasks, toggleTaskCompletion, setSelectedTask, searchQuery, setSearchQuery } = useTaskStore();
+  const { tasks, toggleTaskCompletion, setSelectedTask, searchQuery, setSearchQuery, filter, setFilter } = useTaskStore();
+  const { points, level } = useUserStore();
+
+  const [activeTab, setActiveTab] = useState(filter);
+
+  // Sync local tab state with store filter
+  useEffect(() => {
+    setActiveTab(filter);
+  }, [filter]);
+
+  const handleTabPress = (newFilter: typeof filter) => {
+    setActiveTab(newFilter);
+    setFilter(newFilter);
+  };
 
   const filteredTasks = tasks.filter(task =>
     task.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const highPriorityTasks = tasks.filter(t => !t.completed && t.priority === 'high');
 
   function handleTaskPress(task: any) {
     setSelectedTask(task);
     navigation.navigate('TaskDetail' as never, { taskId: task.id } as never);
   }
 
-  return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: theme.colors.text }]}>Toutes les tâches</Text>
+  const renderHeader = () => (
+    <View style={styles.headerContainer}>
+      <View style={styles.headerTop}>
+        <View>
+          <Text style={[styles.greeting, { color: theme.colors.textSecondary }]}>Bon retour,</Text>
+          <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Mon Tableau de Bord</Text>
+        </View>
+        <TouchableOpacity style={[styles.profileButton, { backgroundColor: theme.colors.surface }]}>
+          <Text style={[styles.levelText, { color: theme.colors.primary }]}>Lvl {level}</Text>
+        </TouchableOpacity>
       </View>
 
-      <View style={styles.searchContainer}>
-        <Input
-          placeholder="Rechercher..."
+      {/* Search Bar */}
+      <View style={[styles.searchWrapper, { backgroundColor: theme.colors.surface }]}>
+        <Ionicons name="search" size={20} color={theme.colors.textSecondary} />
+        <TextInput
+          style={[styles.searchInput, { color: theme.colors.text }]}
+          placeholder="Rechercher une tâche..."
+          placeholderTextColor={theme.colors.textTertiary}
           value={searchQuery}
           onChangeText={setSearchQuery}
-          leftIcon={<Ionicons name="search-outline" size={20} color={theme.colors.textSecondary} />}
         />
       </View>
 
+      {/* Focus Section (Only visible if there are high priority tasks and filter is 'all') */}
+      {filter === 'all' && !searchQuery && highPriorityTasks.length > 0 && (
+        <Animated.View entering={FadeInDown.delay(100).springify()} style={styles.focusSection}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>🎯 Focus Prioritaire</Text>
+            <View style={[styles.countBadge, { backgroundColor: theme.colors.error }]}>
+              <Text style={styles.countText}>{highPriorityTasks.length}</Text>
+            </View>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.focusList}>
+            {highPriorityTasks.map((task) => (
+              <TouchableOpacity
+                key={task.id}
+                onPress={() => handleTaskPress(task)}
+                style={[styles.focusCard, { backgroundColor: theme.colors.surface }]}
+              >
+                <View style={[styles.focusStrip, { backgroundColor: theme.colors.error }]} />
+                <Text style={[styles.focusTitle, { color: theme.colors.text }]} numberOfLines={2}>{task.title}</Text>
+                <View style={styles.focusMeta}>
+                  <Ionicons name="time-outline" size={12} color={theme.colors.textSecondary} />
+                  <Text style={[styles.focusTime, { color: theme.colors.textSecondary }]}>Aujourd'hui</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </Animated.View>
+      )}
+
+      {/* Custom Tabs */}
+      <View style={styles.tabsContainer}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsContent}>
+          {['all', 'today', 'upcoming', 'completed'].map((tab) => {
+            const isActive = activeTab === tab;
+            const label = {
+              all: 'Tout',
+              today: "Aujourd'hui",
+              upcoming: 'À venir',
+              completed: 'Terminé'
+            }[tab];
+
+            return (
+              <TouchableOpacity
+                key={tab}
+                onPress={() => handleTabPress(tab as any)}
+                style={[
+                  styles.tabItem,
+                  isActive && { backgroundColor: theme.colors.text },
+                  !isActive && { backgroundColor: 'transparent', borderWidth: 1, borderColor: theme.colors.border }
+                ]}
+              >
+                <Text style={[
+                  styles.tabText,
+                  isActive ? { color: theme.colors.background } : { color: theme.colors.text }
+                ]}>
+                  {label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+    </View>
+  );
+
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
       <FlatList
         data={filteredTasks}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
-        renderItem={({ item: task }) => (
-          <Card style={styles.taskCard} onPress={() => handleTaskPress(task)}>
-            <View style={styles.taskContent}>
-              <Checkbox checked={task.completed} onPress={() => toggleTaskCompletion(task.id)} />
-              <View style={styles.taskInfo}>
-                <Text style={[styles.taskTitle, { color: theme.colors.text }, task.completed && styles.completed]}>
-                  {task.title}
-                </Text>
-                {task.category && <Badge label={task.category} size="small" />}
-              </View>
-            </View>
-          </Card>
+        ListHeaderComponent={renderHeader}
+        renderItem={({ item, index }) => (
+          <Animated.View entering={FadeInDown.delay(200 + index * 50).springify()} layout={Layout.springify()}>
+            <PremiumTaskItem
+              task={item}
+              onPress={handleTaskPress}
+              onToggle={toggleTaskCompletion}
+            />
+          </Animated.View>
         )}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Ionicons name="leaf-outline" size={48} color={theme.colors.textTertiary} />
+            <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>Aucune tâche trouvée</Text>
+          </View>
+        }
       />
     </SafeAreaView>
   );
@@ -66,13 +161,89 @@ export default function TaskListScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingHorizontal: 24, paddingVertical: 16 },
-  title: { fontSize: 32, fontWeight: '700' },
-  searchContainer: { paddingHorizontal: 24, marginBottom: 16 },
-  listContent: { paddingHorizontal: 24, paddingBottom: 24 },
-  taskCard: { marginBottom: 12 },
-  taskContent: { flexDirection: 'row', alignItems: 'center' },
-  taskInfo: { flex: 1, marginLeft: 12, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  taskTitle: { fontSize: 16, flex: 1 },
-  completed: { textDecorationLine: 'line-through', opacity: 0.5 },
+  headerContainer: { paddingBottom: 16 },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    marginBottom: 24,
+  },
+  greeting: { fontSize: 14, fontWeight: '600', marginBottom: 4, opacity: 0.7 },
+  headerTitle: { fontSize: 28, fontWeight: '800', letterSpacing: -0.5 },
+  profileButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
+  },
+  levelText: { fontSize: 12, fontWeight: '700' },
+
+  searchWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 24,
+    paddingHorizontal: 16,
+    height: 50,
+    borderRadius: 16,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  searchInput: { flex: 1, marginLeft: 12, fontSize: 16, fontWeight: '500' },
+
+  focusSection: { marginBottom: 24 },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    marginBottom: 12,
+    gap: 8,
+  },
+  sectionTitle: { fontSize: 18, fontWeight: '700' },
+  countBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+  countText: { color: '#fff', fontSize: 10, fontWeight: '700' },
+  focusList: { paddingHorizontal: 24, gap: 12 },
+  focusCard: {
+    width: 140,
+    height: 100,
+    borderRadius: 16,
+    padding: 12,
+    justifyContent: 'space-between',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  focusStrip: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
+  },
+  focusTitle: { fontSize: 14, fontWeight: '600', marginLeft: 4 },
+  focusMeta: { flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 4 },
+  focusTime: { fontSize: 10, fontWeight: '500' },
+
+  tabsContainer: { marginBottom: 8 },
+  tabsContent: { paddingHorizontal: 24, gap: 10 },
+  tabItem: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 24,
+  },
+  tabText: { fontSize: 14, fontWeight: '600' },
+
+  listContent: { paddingBottom: 100 },
+  emptyState: { alignItems: 'center', marginTop: 40, opacity: 0.5 },
+  emptyText: { marginTop: 12, fontSize: 16, fontWeight: '500' },
 });

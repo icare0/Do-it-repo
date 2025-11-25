@@ -25,6 +25,7 @@ import { useThemeStore } from '@/store/themeStore';
 import { useTaskStore } from '@/store/taskStore';
 import { useSyncStore } from '@/store/syncStore';
 import { useNotificationStore } from '@/store/notificationStore';
+import { useUserStore } from '@/store/userStore';
 import { getTheme } from '@/theme';
 import { syncService } from '@/services/syncService';
 import { hapticsService } from '@/services/hapticsService';
@@ -38,6 +39,7 @@ export default function TodayScreen() {
   const { tasks, toggleTaskCompletion, setSelectedTask, updateTask, deleteTask } = useTaskStore();
   const { isSyncing } = useSyncStore();
   const { unreadCount } = useNotificationStore();
+  const { points, level, streak } = useUserStore();
   const [showBriefing, setShowBriefing] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -132,6 +134,15 @@ export default function TodayScreen() {
           <Text style={[styles.title, { color: theme.colors.text }]}>Aujourd'hui</Text>
         </View>
         <View style={styles.headerRight}>
+          <View style={styles.gamificationContainer}>
+            <View style={styles.streakBadge}>
+              <Ionicons name="flame" size={16} color={theme.colors.warning} />
+              <Text style={[styles.streakText, { color: theme.colors.text }]}>{streak}</Text>
+            </View>
+            <View style={[styles.levelBadge, { backgroundColor: theme.colors.surface }]}>
+              <Text style={[styles.levelText, { color: theme.colors.primary }]}>Lvl {level}</Text>
+            </View>
+          </View>
           <OfflineBadge />
           <TouchableOpacity
             style={styles.notificationButton}
@@ -170,7 +181,7 @@ export default function TodayScreen() {
           <View style={styles.progressHeader}>
             <View>
               <Text style={[styles.progressTitle, { color: theme.colors.text }]}>
-                Progression du jour
+                Quête du jour
               </Text>
               <Text style={[styles.progressSubtitle, { color: theme.colors.textSecondary }]}>
                 {completedToday.length} / {todayTasks.length + completedToday.length} tâches
@@ -420,5 +431,35 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  gamificationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginRight: 8,
+  },
+  streakBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+  },
+  streakText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  levelBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
+  },
+  levelText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
 });

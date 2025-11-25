@@ -78,6 +78,48 @@ const taskSchema = new Schema<ITask>(
     calendarEventId: {
       type: String,
     },
+    version: {
+      type: Number,
+      default: 1,
+    },
+    lastSyncedAt: {
+      type: Date,
+    },
+    deletedAt: {
+      type: Date,
+      index: true,
+    },
+    completedAt: {
+      type: Date,
+    },
+    order: {
+      type: Number,
+      default: 0,
+    },
+    notes: {
+      type: String,
+    },
+    attachments: [
+      {
+        type: {
+          type: String,
+          enum: ['image', 'file', 'link'],
+        },
+        url: String,
+        name: String,
+        size: Number,
+      },
+    ],
+    subtasks: [
+      {
+        title: String,
+        completed: {
+          type: Boolean,
+          default: false,
+        },
+        order: Number,
+      },
+    ],
   },
   {
     timestamps: true,

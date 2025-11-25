@@ -9,6 +9,16 @@ export interface IUser extends Document {
   provider: 'local' | 'google' | 'apple';
   providerId?: string;
   refreshTokens: string[];
+  googleRefreshToken?: string;
+  googleCalendarSyncToken?: string;
+  fcmToken?: string;
+  timezone: string;
+  preferences: {
+    language: string;
+    notificationsEnabled: boolean;
+    geofenceNotificationsEnabled: boolean;
+    defaultTaskDuration: number;
+  };
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
@@ -45,6 +55,23 @@ export interface ITask extends Document {
     endDate?: Date;
   };
   calendarEventId?: string;
+  version: number;
+  lastSyncedAt?: Date;
+  deletedAt?: Date;
+  completedAt?: Date;
+  order: number;
+  notes?: string;
+  attachments?: Array<{
+    type: 'image' | 'file' | 'link';
+    url: string;
+    name: string;
+    size?: number;
+  }>;
+  subtasks?: Array<{
+    title: string;
+    completed: boolean;
+    order: number;
+  }>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -67,6 +94,7 @@ export interface AuthRequest extends Request {
     id: string;
     email: string;
     name: string;
+    timezone?: string;
   };
 }
 

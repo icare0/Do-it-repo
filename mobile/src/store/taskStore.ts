@@ -41,13 +41,23 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     selectedTask: state.selectedTask?.id === taskId ? null : state.selectedTask,
   })),
 
-  toggleTaskCompletion: (taskId) => set((state) => ({
-    tasks: state.tasks.map((task) =>
-      task.id === taskId
-        ? { ...task, completed: !task.completed, updatedAt: new Date() }
-        : task
-    ),
-  })),
+  toggleTaskCompletion: (taskId) => {
+    set((state) => {
+      const task = state.tasks.find((t) => t.id === taskId);
+      if (task && !task.completed) {
+        // Award points for completing a task
+        const userStore = require('./userStore').useUserStore;
+        userStore.getState().addPoints(10);
+        userStore.getState().updateStreak();
+      }
+
+      return {
+        tasks: state.tasks.map((task) =>
+          task.id === taskId ? { ...task, completed: !task.completed, updatedAt: new Date() } : task
+        ),
+      };
+    });
+  },
 
   setSelectedTask: (task) => set({ selectedTask: task }),
 
