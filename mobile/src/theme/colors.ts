@@ -1,82 +1,268 @@
+// Apple-inspired Design System Colors
+// Based on SF Symbols and iOS Human Interface Guidelines
+
 export const colors = {
   light: {
-    primary: '#3B82F6', // blue-500
-    primaryDark: '#2563EB', // blue-600
-    primaryLight: '#60A5FA', // blue-400
-    secondary: '#8B5CF6', // violet-500
-    secondaryDark: '#7C3AED', // violet-600
-    secondaryLight: '#A78BFA', // violet-400
+    // Primary - Blue (iOS System Blue)
+    primary: '#007AFF',
+    primaryDark: '#0051D5',
+    primaryLight: '#4DA2FF',
+    primarySoft: '#E5F1FF',
 
-    background: '#FFFFFF',
-    backgroundSecondary: '#F9FAFB', // neutral-50
-    backgroundTertiary: '#F3F4F6', // neutral-100
+    // Secondary - Purple (iOS System Purple)
+    secondary: '#AF52DE',
+    secondaryDark: '#8E3CC4',
+    secondaryLight: '#C77EE8',
+    secondarySoft: '#F5E9FF',
 
+    // Accent colors (iOS System Colors)
+    pink: '#FF2D55',
+    pinkSoft: '#FFE5EC',
+    teal: '#5AC8FA',
+    tealSoft: '#E5F7FF',
+    green: '#34C759',
+    greenSoft: '#E5F9ED',
+    yellow: '#FFCC00',
+    yellowSoft: '#FFF8E5',
+    orange: '#FF9500',
+    orangeSoft: '#FFF3E5',
+    red: '#FF3B30',
+    redSoft: '#FFE5E5',
+    indigo: '#5856D6',
+    indigoSoft: '#EEEEFF',
+
+    // Backgrounds (Apple layered UI)
+    background: '#F5F5F7', // Apple's light background
+    backgroundElevated: '#FFFFFF',
+    backgroundSecondary: '#EFEFF4',
+    backgroundTertiary: '#E5E5EA',
+
+    // Glass morphism
+    glass: 'rgba(255, 255, 255, 0.7)',
+    glassSecondary: 'rgba(255, 255, 255, 0.5)',
+
+    // Surface (Cards)
     surface: '#FFFFFF',
-    surfaceSecondary: '#F9FAFB',
+    surfaceSecondary: '#F9F9FB',
+    surfaceElevated: '#FFFFFF',
 
-    text: '#171717', // neutral-900
-    textSecondary: '#737373', // neutral-500
-    textTertiary: '#A3A3A3', // neutral-400
+    // Text (SF Pro)
+    text: '#1D1D1F', // Apple's dark text
+    textSecondary: '#6E6E73', // Apple's secondary text
+    textTertiary: '#86868B', // Apple's tertiary text
+    textQuaternary: '#C6C6C8',
     textInverse: '#FFFFFF',
+    textOnColor: '#FFFFFF',
 
-    border: '#E5E5E5', // neutral-200
-    borderLight: '#F5F5F5', // neutral-100
+    // Borders
+    border: '#D1D1D6',
+    borderLight: '#E5E5EA',
+    borderSecondary: '#C6C6C8',
+    divider: '#E5E5EA',
 
-    success: '#10B981', // green-500
-    successLight: '#D1FAE5', // green-100
-    error: '#EF4444', // red-500
-    errorLight: '#FEE2E2', // red-100
-    warning: '#F59E0B', // amber-500
-    warningLight: '#FEF3C7', // amber-100
-    info: '#3B82F6', // blue-500
-    infoLight: '#DBEAFE', // blue-100
+    // Status colors (iOS semantic colors)
+    success: '#34C759',
+    successLight: '#E5F9ED',
+    error: '#FF3B30',
+    errorLight: '#FFE5E5',
+    warning: '#FF9500',
+    warningLight: '#FFF3E5',
+    info: '#007AFF',
+    infoLight: '#E5F1FF',
 
-    gradient: {
-      primary: ['#3B82F6', '#8B5CF6'],
-      secondary: ['#8B5CF6', '#EC4899'],
-      tertiary: ['#10B981', '#3B82F6'],
+    // Category colors (colorful and soft)
+    categories: {
+      work: '#5856D6',
+      workSoft: '#EEEEFF',
+      personal: '#FF2D55',
+      personalSoft: '#FFE5EC',
+      shopping: '#FF9500',
+      shoppingSoft: '#FFF3E5',
+      health: '#34C759',
+      healthSoft: '#E5F9ED',
+      finance: '#5AC8FA',
+      financeSoft: '#E5F7FF',
+      learning: '#AF52DE',
+      learningSoft: '#F5E9FF',
+      social: '#FFCC00',
+      socialSoft: '#FFF8E5',
+      travel: '#007AFF',
+      travelSoft: '#E5F1FF',
     },
+
+    // Priority colors
+    priority: {
+      high: '#FF3B30',
+      highSoft: '#FFE5E5',
+      medium: '#FF9500',
+      mediumSoft: '#FFF3E5',
+      low: '#5AC8FA',
+      lowSoft: '#E5F7FF',
+    },
+
+    // Gradients (Apple-style soft gradients)
+    gradient: {
+      primary: ['#007AFF', '#5856D6'],
+      secondary: ['#AF52DE', '#FF2D55'],
+      sunrise: ['#FF9500', '#FF3B30'],
+      ocean: ['#5AC8FA', '#007AFF'],
+      forest: ['#34C759', '#5AC8FA'],
+      sunset: ['#FF9500', '#AF52DE'],
+      midnight: ['#5856D6', '#1D1D1F'],
+    },
+
+    // Special effects
+    overlay: 'rgba(0, 0, 0, 0.4)',
+    overlayLight: 'rgba(0, 0, 0, 0.2)',
+    overlayStrong: 'rgba(0, 0, 0, 0.6)',
+    shimmer: 'rgba(255, 255, 255, 0.6)',
+
+    // Shadows
+    shadowColor: 'rgba(0, 0, 0, 0.1)',
   },
 
   dark: {
-    primary: '#60A5FA', // blue-400
-    primaryDark: '#3B82F6', // blue-500
-    primaryLight: '#93C5FD', // blue-300
-    secondary: '#A78BFA', // violet-400
-    secondaryDark: '#8B5CF6', // violet-500
-    secondaryLight: '#C4B5FD', // violet-300
+    // Primary - Blue (iOS System Blue Dark)
+    primary: '#0A84FF',
+    primaryDark: '#0069D9',
+    primaryLight: '#409CFF',
+    primarySoft: '#1A2F4D',
 
-    background: '#0A0A0A', // neutral-950
-    backgroundSecondary: '#171717', // neutral-900
-    backgroundTertiary: '#262626', // neutral-800
+    // Secondary - Purple (iOS System Purple Dark)
+    secondary: '#BF5AF2',
+    secondaryDark: '#A640D9',
+    secondaryLight: '#CF74F5',
+    secondarySoft: '#2D1F3D',
 
-    surface: '#171717',
-    surfaceSecondary: '#262626',
+    // Accent colors (iOS System Colors Dark Mode)
+    pink: '#FF375F',
+    pinkSoft: '#3D1F26',
+    teal: '#64D2FF',
+    tealSoft: '#1F2D3D',
+    green: '#30D158',
+    greenSoft: '#1F3D26',
+    yellow: '#FFD60A',
+    yellowSoft: '#3D3320',
+    orange: '#FF9F0A',
+    orangeSoft: '#3D2A1F',
+    red: '#FF453A',
+    redSoft: '#3D1F1F',
+    indigo: '#5E5CE6',
+    indigoSoft: '#26263D',
 
-    text: '#FAFAFA', // neutral-50
-    textSecondary: '#A3A3A3', // neutral-400
-    textTertiary: '#737373', // neutral-500
-    textInverse: '#0A0A0A',
+    // Backgrounds (Apple dark mode)
+    background: '#000000', // Pure black for OLED
+    backgroundElevated: '#1C1C1E',
+    backgroundSecondary: '#1C1C1E',
+    backgroundTertiary: '#2C2C2E',
 
-    border: '#404040', // neutral-700
-    borderLight: '#525252', // neutral-600
+    // Glass morphism
+    glass: 'rgba(28, 28, 30, 0.7)',
+    glassSecondary: 'rgba(28, 28, 30, 0.5)',
 
-    success: '#34D399', // green-400
-    successLight: '#064E3B', // green-900
-    error: '#F87171', // red-400
-    errorLight: '#7F1D1D', // red-900
-    warning: '#FBBF24', // amber-400
-    warningLight: '#78350F', // amber-900
-    info: '#60A5FA', // blue-400
-    infoLight: '#1E3A8A', // blue-900
+    // Surface (Cards)
+    surface: '#1C1C1E',
+    surfaceSecondary: '#2C2C2E',
+    surfaceElevated: '#2C2C2E',
 
-    gradient: {
-      primary: ['#3B82F6', '#8B5CF6'],
-      secondary: ['#8B5CF6', '#EC4899'],
-      tertiary: ['#10B981', '#3B82F6'],
+    // Text (SF Pro Dark)
+    text: '#FFFFFF',
+    textSecondary: '#98989D',
+    textTertiary: '#636366',
+    textQuaternary: '#48484A',
+    textInverse: '#1D1D1F',
+    textOnColor: '#FFFFFF',
+
+    // Borders
+    border: '#38383A',
+    borderLight: '#48484A',
+    borderSecondary: '#3A3A3C',
+    divider: '#38383A',
+
+    // Status colors (iOS semantic colors dark)
+    success: '#30D158',
+    successLight: '#1F3D26',
+    error: '#FF453A',
+    errorLight: '#3D1F1F',
+    warning: '#FF9F0A',
+    warningLight: '#3D2A1F',
+    info: '#0A84FF',
+    infoLight: '#1A2F4D',
+
+    // Category colors (vibrant for dark mode)
+    categories: {
+      work: '#5E5CE6',
+      workSoft: '#26263D',
+      personal: '#FF375F',
+      personalSoft: '#3D1F26',
+      shopping: '#FF9F0A',
+      shoppingSoft: '#3D2A1F',
+      health: '#30D158',
+      healthSoft: '#1F3D26',
+      finance: '#64D2FF',
+      financeSoft: '#1F2D3D',
+      learning: '#BF5AF2',
+      learningSoft: '#2D1F3D',
+      social: '#FFD60A',
+      socialSoft: '#3D3320',
+      travel: '#0A84FF',
+      travelSoft: '#1A2F4D',
     },
+
+    // Priority colors
+    priority: {
+      high: '#FF453A',
+      highSoft: '#3D1F1F',
+      medium: '#FF9F0A',
+      mediumSoft: '#3D2A1F',
+      low: '#64D2FF',
+      lowSoft: '#1F2D3D',
+    },
+
+    // Gradients (vibrant for dark mode)
+    gradient: {
+      primary: ['#0A84FF', '#5E5CE6'],
+      secondary: ['#BF5AF2', '#FF375F'],
+      sunrise: ['#FF9F0A', '#FF453A'],
+      ocean: ['#64D2FF', '#0A84FF'],
+      forest: ['#30D158', '#64D2FF'],
+      sunset: ['#FF9F0A', '#BF5AF2'],
+      midnight: ['#5E5CE6', '#000000'],
+    },
+
+    // Special effects
+    overlay: 'rgba(0, 0, 0, 0.7)',
+    overlayLight: 'rgba(0, 0, 0, 0.5)',
+    overlayStrong: 'rgba(0, 0, 0, 0.85)',
+    shimmer: 'rgba(255, 255, 255, 0.1)',
+
+    // Shadows
+    shadowColor: 'rgba(0, 0, 0, 0.5)',
   },
 };
 
 export type ColorScheme = 'light' | 'dark';
 export type ThemeColors = typeof colors.light;
+
+// Helper function to get category color
+export const getCategoryColor = (category: string, scheme: ColorScheme = 'light') => {
+  const categoryKey = category.toLowerCase() as keyof typeof colors.light.categories;
+  return colors[scheme].categories[categoryKey] || colors[scheme].primary;
+};
+
+// Helper function to get category soft color
+export const getCategorySoftColor = (category: string, scheme: ColorScheme = 'light') => {
+  const categoryKey = `${category.toLowerCase()}Soft` as keyof typeof colors.light.categories;
+  return colors[scheme].categories[categoryKey] || colors[scheme].primarySoft;
+};
+
+// Helper function to get priority color
+export const getPriorityColor = (priority: 'low' | 'medium' | 'high', scheme: ColorScheme = 'light') => {
+  return colors[scheme].priority[priority];
+};
+
+// Helper function to get priority soft color
+export const getPrioritySoftColor = (priority: 'low' | 'medium' | 'high', scheme: ColorScheme = 'light') => {
+  const key = `${priority}Soft` as keyof typeof colors.light.priority;
+  return colors[scheme].priority[key];
+};

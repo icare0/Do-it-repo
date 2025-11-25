@@ -6,16 +6,19 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
+  Animated,
+  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { Card } from '@/components/ui/Card';
 import { Checkbox } from '@/components/ui/Checkbox';
-import { Badge } from '@/components/ui/Badge';
+import { CategoryBadge, PriorityBadge } from '@/components/ui/Badge';
 import { SwipeableRow } from '@/components/ui/SwipeableRow';
 import { VoiceButton } from '@/components/ui/VoiceButton';
 import { SkeletonTaskCard, SkeletonList } from '@/components/ui/Skeleton';
@@ -26,7 +29,7 @@ import { useTaskStore } from '@/store/taskStore';
 import { useSyncStore } from '@/store/syncStore';
 import { useNotificationStore } from '@/store/notificationStore';
 import { useUserStore } from '@/store/userStore';
-import { getTheme } from '@/theme';
+import { getTheme, spacing, borderRadius, typography, shadows } from '@/theme';
 import { syncService } from '@/services/syncService';
 import { hapticsService } from '@/services/hapticsService';
 import { VoiceTranscription } from '@/services/voiceService';
@@ -42,6 +45,7 @@ export default function TodayScreen() {
   const { points, level, streak } = useUserStore();
   const [showBriefing, setShowBriefing] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [scrollY] = useState(new Animated.Value(0));
 
   const today = new Date();
   const todayStr = format(today, 'yyyy-MM-dd');
@@ -70,6 +74,10 @@ export default function TodayScreen() {
         format(task.startDate, 'yyyy-MM-dd') === todayStr
     )
     .sort((a, b) => {
+      const priorityOrder = { high: 0, medium: 1, low: 2 };
+      const priorityA = priorityOrder[a.priority || 'medium'];
+      const priorityB = priorityOrder[b.priority || 'medium'];
+      if (priorityA !== priorityB) return priorityA - priorityB;
       if (!a.startDate || !b.startDate) return 0;
       return a.startDate.getTime() - b.startDate.getTime();
     });
@@ -119,54 +127,114 @@ export default function TodayScreen() {
     navigation.navigate('QuickAdd' as never, { prefillText: result.text } as never);
   }
 
-  const progressPercent =
-    todayTasks.length + completedToday.length > 0
-      ? Math.round((completedToday.length / (todayTasks.length + completedToday.length)) * 100)
-      : 0;
+  const totalTasks = todayTasks.length + completedToday.length;
+  const progressPercent = totalTasks > 0 ? (completedToday.length / totalTasks) : 0;
+
+  // Greeting based on time of day
+  const getGreeting = () => {
+    const hour = today.getHours();
+    if (hour < 12) return 'Bonjour';
+    if (hour < 18) return 'Bon après-midi';
+    return 'Bonsoir';
+  };
+
+  // Header opacity animation
+  const headerOpacity = scrollY.interpolate({
+    inputRange: [0, 100],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Text style={[styles.greeting, { color: theme.colors.textSecondary }]}>
-            {format(today, 'EEEE d MMMM', { locale: fr })}
-          </Text>
-          <Text style={[styles.title, { color: theme.colors.text }]}>Aujourd'hui</Text>
-        </View>
-        <View style={styles.headerRight}>
-          <View style={styles.gamificationContainer}>
-            <View style={styles.streakBadge}>
-              <Ionicons name="flame" size={16} color={theme.colors.warning} />
-              <Text style={[styles.streakText, { color: theme.colors.text }]}>{streak}</Text>
-            </View>
-            <View style={[styles.levelBadge, { backgroundColor: theme.colors.surface }]}>
-              <Text style={[styles.levelText, { color: theme.colors.primary }]}>Lvl {level}</Text>
-            </View>
-          </View>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      edges={['top']}
+    >
+      {/* Animated Header */}
+      <Animated.View
+        style={[
+          styles.compactHeader,
+          {
+            backgroundColor: theme.colors.background,
+            opacity: headerOpacity,
+            ...shadows.sm,
+          },
+        ]}
+      >
+        <Text style={[styles.compactTitle, { color: theme.colors.text }]}>
+          Aujourd'hui
+        </Text>
+        <View style={styles.compactHeaderRight}>
           <OfflineBadge />
           <TouchableOpacity
-            style={styles.notificationButton}
+            style={styles.iconButton}
             onPress={() => navigation.navigate('Notifications' as never)}
           >
-            <Ionicons name="notifications-outline" size={24} color={theme.colors.text} />
+            <Ionicons name="notifications-outline" size={22} color={theme.colors.text} />
             {unreadCount > 0 && (
-              <View style={[styles.notificationBadge, { backgroundColor: theme.colors.error }]}>
-                <Text style={styles.notificationBadgeText}>
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </Text>
-              </View>
+              <View style={[styles.notificationDot, { backgroundColor: theme.colors.error }]} />
             )}
           </TouchableOpacity>
         </View>
-      </View>
+      </Animated.View>
 
-      <ScrollView
+      <Animated.ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={isSyncing || isLoading} onRefresh={handleRefresh} />
+          <RefreshControl
+            refreshing={isSyncing || isLoading}
+            onRefresh={handleRefresh}
+            tintColor={theme.colors.primary}
+          />
         }
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false }
+        )}
+        scrollEventThrottle={16}
       >
+        {/* Large Title Header */}
+        <View style={styles.largeHeader}>
+          <View style={styles.headerTop}>
+            <View>
+              <Text style={[styles.greeting, { color: theme.colors.textSecondary }]}>
+                {getGreeting()}
+              </Text>
+              <Text style={[styles.date, { color: theme.colors.textTertiary }]}>
+                {format(today, 'EEEE d MMMM', { locale: fr })}
+              </Text>
+            </View>
+            <View style={styles.headerActions}>
+              {/* Streak Badge */}
+              {streak > 0 && (
+                <Pressable
+                  style={[styles.streakContainer, { backgroundColor: theme.colors.orangeSoft }]}
+                  onPress={() => navigation.navigate('Stats' as never)}
+                >
+                  <Ionicons name="flame" size={18} color={theme.colors.orange} />
+                  <Text style={[styles.streakText, { color: theme.colors.orange }]}>
+                    {streak}
+                  </Text>
+                </Pressable>
+              )}
+              <TouchableOpacity
+                style={styles.iconButton}
+                onPress={() => navigation.navigate('Notifications' as never)}
+              >
+                <Ionicons name="notifications-outline" size={24} color={theme.colors.text} />
+                {unreadCount > 0 && (
+                  <View style={[styles.notificationDot, { backgroundColor: theme.colors.error }]} />
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+          <Text style={[styles.largeTitle, { color: theme.colors.text }]}>
+            Aujourd'hui
+          </Text>
+        </View>
+
+        {/* Daily Briefing */}
         {showBriefing && (
           <View style={styles.briefingContainer}>
             <DailyBriefing
@@ -177,165 +245,292 @@ export default function TodayScreen() {
           </View>
         )}
 
-        <Card variant="elevated" style={styles.progressCard}>
-          <View style={styles.progressHeader}>
-            <View>
-              <Text style={[styles.progressTitle, { color: theme.colors.text }]}>
-                Quête du jour
-              </Text>
-              <Text style={[styles.progressSubtitle, { color: theme.colors.textSecondary }]}>
-                {completedToday.length} / {todayTasks.length + completedToday.length} tâches
-              </Text>
+        {/* Progress Card */}
+        {totalTasks > 0 && (
+          <Card variant="elevated" padding="xl" borderRadiusSize="xxl" style={styles.progressCard}>
+            <View style={styles.progressHeader}>
+              <View>
+                <Text style={[styles.progressTitle, { color: theme.colors.text }]}>
+                  Progression du jour
+                </Text>
+                <Text style={[styles.progressSubtitle, { color: theme.colors.textSecondary }]}>
+                  {completedToday.length} sur {totalTasks} terminées
+                </Text>
+              </View>
             </View>
-            <View
-              style={[
-                styles.progressCircle,
-                {
-                  backgroundColor:
-                    colorScheme === 'dark'
-                      ? 'rgba(96, 165, 250, 0.15)'
-                      : 'rgba(59, 130, 246, 0.1)',
-                },
-              ]}
-            >
-              <Text style={[styles.progressPercentage, { color: theme.colors.primary }]}>
-                {progressPercent}%
-              </Text>
-            </View>
-          </View>
-          <View style={[styles.progressBarBg, { backgroundColor: theme.colors.border }]}>
-            <View
-              style={[
-                styles.progressBarFill,
-                { width: `${progressPercent}%`, backgroundColor: theme.colors.primary },
-              ]}
-            />
-          </View>
-        </Card>
 
+            {/* Circular Progress */}
+            <View style={styles.progressCircleContainer}>
+              <View style={styles.progressCircleWrapper}>
+                {/* Background circle */}
+                <View
+                  style={[
+                    styles.progressCircleBg,
+                    {
+                      borderColor: theme.colors.borderLight,
+                      width: 120,
+                      height: 120,
+                      borderRadius: 60,
+                    }
+                  ]}
+                />
+                {/* Progress circle */}
+                <LinearGradient
+                  colors={theme.colors.gradient.primary}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={[
+                    StyleSheet.absoluteFill,
+                    {
+                      width: 120,
+                      height: 120,
+                      borderRadius: 60,
+                      opacity: progressPercent,
+                    },
+                  ]}
+                />
+                <View style={styles.progressCircleInner}>
+                  <Text style={[styles.progressPercentText, { color: theme.colors.text }]}>
+                    {Math.round(progressPercent * 100)}%
+                  </Text>
+                  <Text style={[styles.progressLabel, { color: theme.colors.textSecondary }]}>
+                    complété
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </Card>
+        )}
+
+        {/* Today's Tasks */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-              Tâches du jour
+            <Text style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}>
+              VOS TÂCHES
             </Text>
-            <Badge label={todayTasks.length.toString()} variant="primary" />
+            {todayTasks.length > 0 && (
+              <View style={[styles.countBadge, { backgroundColor: theme.colors.primary }]}>
+                <Text style={styles.countText}>{todayTasks.length}</Text>
+              </View>
+            )}
           </View>
 
           {isLoading ? (
             <SkeletonList count={3} component={SkeletonTaskCard} />
           ) : todayTasks.length === 0 ? (
-            <Card>
+            <Card variant="elevated" padding="xxxl">
               <View style={styles.emptyState}>
-                <Ionicons name="checkmark-circle-outline" size={48} color={theme.colors.textTertiary} />
-                <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
-                  Aucune tâche pour aujourd'hui
+                <View style={[styles.emptyIcon, { backgroundColor: theme.colors.successLight }]}>
+                  <Ionicons name="checkmark-circle" size={32} color={theme.colors.success} />
+                </View>
+                <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
+                  Tout est fait !
                 </Text>
-                <Text style={[styles.emptySubtext, { color: theme.colors.textTertiary }]}>
-                  Profitez de votre journée ! 🎉
+                <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
+                  Vous n'avez aucune tâche pour aujourd'hui
                 </Text>
               </View>
             </Card>
           ) : (
-            todayTasks.map((task) => (
-              <SwipeableRow
-                key={task.id}
-                leftAction={{
-                  icon: 'calendar-outline',
-                  color: '#fff',
-                  backgroundColor: theme.colors.warning,
-                  onPress: () => handlePostponeTask(task),
-                  label: 'Demain',
-                }}
-                rightAction={{
-                  icon: 'trash-outline',
-                  color: '#fff',
-                  backgroundColor: theme.colors.error,
-                  onPress: () => handleDeleteTask(task.id),
-                  label: 'Supprimer',
-                }}
-              >
-                <Card style={styles.taskCard} onPress={() => handleTaskPress(task)}>
+            <View style={styles.taskList}>
+              {todayTasks.map((task, index) => (
+                <SwipeableRow
+                  key={task.id}
+                  leftAction={{
+                    icon: 'calendar-outline',
+                    color: theme.colors.textOnColor,
+                    backgroundColor: theme.colors.orange,
+                    onPress: () => handlePostponeTask(task),
+                    label: 'Demain',
+                  }}
+                  rightAction={{
+                    icon: 'trash-outline',
+                    color: theme.colors.textOnColor,
+                    backgroundColor: theme.colors.error,
+                    onPress: () => handleDeleteTask(task.id),
+                    label: 'Supprimer',
+                  }}
+                >
+                  <Card
+                    variant="elevated"
+                    padding="lg"
+                    borderRadiusSize="lg"
+                    style={[
+                      styles.taskCard,
+                      index === todayTasks.length - 1 && styles.taskCardLast,
+                    ]}
+                    onPress={() => handleTaskPress(task)}
+                  >
+                    <View style={styles.taskContent}>
+                      <Checkbox
+                        checked={task.completed}
+                        onPress={() => handleToggleTask(task.id)}
+                      />
+                      <View style={styles.taskInfo}>
+                        <View style={styles.taskHeader}>
+                          <Text
+                            style={[
+                              styles.taskTitle,
+                              { color: theme.colors.text },
+                              task.completed && styles.taskTitleCompleted,
+                            ]}
+                            numberOfLines={2}
+                          >
+                            {task.title}
+                          </Text>
+                          {task.priority === 'high' && (
+                            <View style={[styles.priorityDot, { backgroundColor: theme.colors.error }]} />
+                          )}
+                        </View>
+
+                        {task.description && (
+                          <Text
+                            style={[styles.taskDescription, { color: theme.colors.textTertiary }]}
+                            numberOfLines={1}
+                          >
+                            {task.description}
+                          </Text>
+                        )}
+
+                        <View style={styles.taskMeta}>
+                          {task.startDate && (
+                            <View style={styles.metaItem}>
+                              <Ionicons name="time-outline" size={14} color={theme.colors.textSecondary} />
+                              <Text style={[styles.metaText, { color: theme.colors.textSecondary }]}>
+                                {format(task.startDate, 'HH:mm')}
+                              </Text>
+                            </View>
+                          )}
+                          {task.location && (
+                            <View style={styles.metaItem}>
+                              <Ionicons name="location-outline" size={14} color={theme.colors.textSecondary} />
+                              <Text
+                                style={[styles.metaText, { color: theme.colors.textSecondary }]}
+                                numberOfLines={1}
+                              >
+                                {task.location.name}
+                              </Text>
+                            </View>
+                          )}
+                          {task.category && (
+                            <CategoryBadge category={task.category as any} size="small" />
+                          )}
+                        </View>
+                      </View>
+                    </View>
+                  </Card>
+                </SwipeableRow>
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* Upcoming Tasks */}
+        {upcomingTasks.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}>
+                À VENIR
+              </Text>
+            </View>
+            <View style={styles.taskList}>
+              {upcomingTasks.map((task, index) => (
+                <Card
+                  key={task.id}
+                  variant="flat"
+                  padding="lg"
+                  borderRadiusSize="lg"
+                  style={[
+                    styles.taskCard,
+                    index === upcomingTasks.length - 1 && styles.taskCardLast,
+                  ]}
+                  onPress={() => handleTaskPress(task)}
+                >
                   <View style={styles.taskContent}>
-                    <Checkbox
-                      checked={task.completed}
-                      onPress={() => handleToggleTask(task.id)}
-                    />
                     <View style={styles.taskInfo}>
-                      <Text style={[styles.taskTitle, { color: theme.colors.text }]}>
+                      <Text style={[styles.taskTitle, { color: theme.colors.text }]} numberOfLines={1}>
                         {task.title}
                       </Text>
                       <View style={styles.taskMeta}>
                         {task.startDate && (
                           <View style={styles.metaItem}>
-                            <Ionicons name="time-outline" size={14} color={theme.colors.textSecondary} />
+                            <Ionicons name="calendar-outline" size={14} color={theme.colors.textSecondary} />
                             <Text style={[styles.metaText, { color: theme.colors.textSecondary }]}>
-                              {format(task.startDate, 'HH:mm')}
+                              {format(task.startDate, 'dd MMM', { locale: fr })}
                             </Text>
                           </View>
                         )}
-                        {task.location && (
-                          <View style={styles.metaItem}>
-                            <Ionicons name="location-outline" size={14} color={theme.colors.textSecondary} />
-                            <Text style={[styles.metaText, { color: theme.colors.textSecondary }]} numberOfLines={1}>
-                              {task.location.name}
-                            </Text>
-                          </View>
+                        {task.category && (
+                          <CategoryBadge category={task.category as any} size="small" />
                         )}
-                        {task.category && <Badge label={task.category} size="small" />}
                       </View>
                     </View>
-                    {task.priority === 'high' && (
-                      <View style={[styles.priorityIndicator, { backgroundColor: theme.colors.error }]} />
-                    )}
+                    <Ionicons name="chevron-forward" size={20} color={theme.colors.textTertiary} />
                   </View>
                 </Card>
-              </SwipeableRow>
-            ))
-          )}
-        </View>
-
-        {upcomingTasks.length > 0 && (
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>À venir</Text>
-            {upcomingTasks.map((task) => (
-              <Card key={task.id} style={styles.taskCard} onPress={() => handleTaskPress(task)}>
-                <View style={styles.taskContent}>
-                  <Checkbox
-                    checked={task.completed}
-                    onPress={() => handleToggleTask(task.id)}
-                  />
-                  <View style={styles.taskInfo}>
-                    <Text style={[styles.taskTitle, { color: theme.colors.text }]}>
-                      {task.title}
-                    </Text>
-                    <View style={styles.taskMeta}>
-                      {task.startDate && (
-                        <View style={styles.metaItem}>
-                          <Ionicons name="calendar-outline" size={14} color={theme.colors.textSecondary} />
-                          <Text style={[styles.metaText, { color: theme.colors.textSecondary }]}>
-                            {format(task.startDate, 'dd MMM', { locale: fr })}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                  </View>
-                </View>
-              </Card>
-            ))}
+              ))}
+            </View>
           </View>
         )}
-      </ScrollView>
 
+        {/* Completed Today */}
+        {completedToday.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}>
+                TERMINÉES AUJOURD'HUI
+              </Text>
+              <View style={[styles.countBadge, { backgroundColor: theme.colors.success }]}>
+                <Text style={styles.countText}>{completedToday.length}</Text>
+              </View>
+            </View>
+            <View style={styles.taskList}>
+              {completedToday.slice(0, 5).map((task, index) => (
+                <Card
+                  key={task.id}
+                  variant="flat"
+                  padding="md"
+                  borderRadiusSize="md"
+                  style={[
+                    styles.completedCard,
+                    index === Math.min(completedToday.length, 5) - 1 && styles.taskCardLast,
+                  ]}
+                  onPress={() => handleTaskPress(task)}
+                >
+                  <View style={styles.completedContent}>
+                    <Ionicons name="checkmark-circle" size={20} color={theme.colors.success} />
+                    <Text
+                      style={[styles.completedTitle, { color: theme.colors.textSecondary }]}
+                      numberOfLines={1}
+                    >
+                      {task.title}
+                    </Text>
+                  </View>
+                </Card>
+              ))}
+            </View>
+          </View>
+        )}
+      </Animated.ScrollView>
+
+      {/* Floating Action Button */}
       <View style={styles.fabContainer}>
-        <VoiceButton onTranscription={handleVoiceTranscription} size="medium" style={styles.voiceFab} />
         <TouchableOpacity
-          style={[styles.fab, { backgroundColor: theme.colors.primary }, theme.shadows.lg]}
+          style={[styles.fab, shadows.xl]}
           onPress={() => {
             hapticsService.medium();
             navigation.navigate('QuickAdd' as never);
           }}
+          activeOpacity={0.8}
         >
-          <Ionicons name="add" size={28} color="#fff" />
+          <LinearGradient
+            colors={theme.colors.gradient.primary}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.fabGradient}
+          >
+            <Ionicons name="add" size={28} color={theme.colors.textOnColor} />
+          </LinearGradient>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -343,123 +538,257 @@ export default function TodayScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  header: {
+  container: {
+    flex: 1,
+  },
+  compactHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 44 + 44, // status bar + header
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.md,
+    zIndex: 10,
+  },
+  compactTitle: {
+    ...typography.headline,
+  },
+  compactHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  iconButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  notificationDot: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 120,
+  },
+  largeHeader: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xxl,
+  },
+  headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 16,
+    marginBottom: spacing.sm,
   },
-  headerLeft: {},
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  greeting: { fontSize: 14, marginBottom: 4, textTransform: 'capitalize' },
-  title: { fontSize: 32, fontWeight: '700' },
-  notificationButton: { padding: 8, position: 'relative' },
-  notificationBadge: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 4,
+  greeting: {
+    ...typography.headline,
+    marginBottom: spacing.xxs,
   },
-  notificationBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
-  scrollView: { flex: 1 },
-  scrollContent: { paddingHorizontal: 24, paddingBottom: 120 },
-  briefingContainer: { marginBottom: 16 },
-  progressCard: { marginBottom: 24 },
-  progressHeader: {
+  date: {
+    ...typography.subheadline,
+    textTransform: 'capitalize',
+  },
+  headerActions: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    gap: spacing.md,
   },
-  progressTitle: { fontSize: 16, fontWeight: '600', marginBottom: 4 },
-  progressSubtitle: { fontSize: 14 },
-  progressCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+  streakContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.xl,
+  },
+  streakText: {
+    ...typography.footnoteEmphasized,
+  },
+  largeTitle: {
+    ...typography.largeTitle,
+  },
+  briefingContainer: {
+    paddingHorizontal: spacing.xl,
+    marginBottom: spacing.xxl,
+  },
+  progressCard: {
+    marginHorizontal: spacing.xl,
+    marginBottom: spacing.xxl,
+  },
+  progressHeader: {
+    marginBottom: spacing.xl,
+  },
+  progressTitle: {
+    ...typography.title3,
+    marginBottom: spacing.xxs,
+  },
+  progressSubtitle: {
+    ...typography.subheadline,
+  },
+  progressCircleContainer: {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  progressPercentage: { fontSize: 18, fontWeight: '700' },
-  progressBarBg: { height: 6, borderRadius: 3, overflow: 'hidden' },
-  progressBarFill: { height: '100%', borderRadius: 3 },
-  section: { marginBottom: 24 },
+  progressCircleWrapper: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  progressCircleBg: {
+    borderWidth: 8,
+  },
+  progressCircleInner: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  progressPercentText: {
+    ...typography.title1,
+  },
+  progressLabel: {
+    ...typography.caption1,
+  },
+  section: {
+    marginBottom: spacing.xxxl,
+  },
   sectionHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.xl,
+    marginBottom: spacing.md,
   },
-  sectionTitle: { fontSize: 20, fontWeight: '600' },
-  taskCard: { marginBottom: 12 },
-  taskContent: { flexDirection: 'row', alignItems: 'center' },
-  taskInfo: { flex: 1, marginLeft: 12 },
-  taskTitle: { fontSize: 16, fontWeight: '500', marginBottom: 4 },
-  taskMeta: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  metaText: { fontSize: 12 },
-  priorityIndicator: { width: 4, height: 40, borderRadius: 2, marginLeft: 8 },
-  emptyState: { alignItems: 'center', paddingVertical: 32 },
-  emptyText: { marginTop: 12, fontSize: 14, fontWeight: '500' },
-  emptySubtext: { marginTop: 4, fontSize: 13 },
-  fabContainer: {
-    position: 'absolute',
-    bottom: 24,
-    right: 24,
+  sectionTitle: {
+    ...typography.caption1Emphasized,
+    letterSpacing: 0.5,
+  },
+  countBadge: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xs,
+  },
+  countText: {
+    ...typography.caption2Emphasized,
+    color: '#FFFFFF',
+  },
+  taskList: {
+    paddingHorizontal: spacing.xl,
+  },
+  taskCard: {
+    marginBottom: spacing.md,
+  },
+  taskCardLast: {
+    marginBottom: 0,
+  },
+  taskContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  taskInfo: {
+    flex: 1,
+    marginLeft: spacing.md,
+  },
+  taskHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: spacing.xs,
+  },
+  taskTitle: {
+    ...typography.body,
+    flex: 1,
+  },
+  taskTitleCompleted: {
+    textDecorationLine: 'line-through',
+    opacity: 0.6,
+  },
+  taskDescription: {
+    ...typography.subheadline,
+    marginBottom: spacing.xs,
+  },
+  priorityDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginLeft: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  taskMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: spacing.sm,
+    flexWrap: 'wrap',
   },
-  voiceFab: {
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  metaText: {
+    ...typography.caption1,
+  },
+  completedCard: {
+    marginBottom: spacing.sm,
+  },
+  completedContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  completedTitle: {
+    ...typography.subheadline,
+    flex: 1,
+  },
+  emptyState: {
+    alignItems: 'center',
+  },
+  emptyIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
+  },
+  emptyTitle: {
+    ...typography.title3,
+    marginBottom: spacing.xs,
+  },
+  emptyText: {
+    ...typography.subheadline,
+    textAlign: 'center',
+  },
+  fabContainer: {
+    position: 'absolute',
+    bottom: spacing.xxxl,
+    right: spacing.xl,
   },
   fab: {
     width: 56,
     height: 56,
     borderRadius: 28,
+    overflow: 'hidden',
+  },
+  fabGradient: {
+    width: '100%',
+    height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  gamificationContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginRight: 8,
-  },
-  streakBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    backgroundColor: 'rgba(245, 158, 11, 0.1)',
-  },
-  streakText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  levelBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
-  },
-  levelText: {
-    fontSize: 12,
-    fontWeight: '700',
   },
 });
