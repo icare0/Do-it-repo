@@ -10,19 +10,19 @@ import { authService } from '@/services/authService';
 import { useThemeStore } from '@/store/themeStore';
 import { getTheme } from '@/theme';
 
-// Screens (we'll create these next)
+// Screens
 import LoginScreen from '@/screens/LoginScreen';
 import RegisterScreen from '@/screens/RegisterScreen';
 import TodayScreen from '@/screens/TodayScreen';
 import TaskListScreen from '@/screens/TaskListScreen';
 import TaskDetailScreen from '@/screens/TaskDetailScreen';
 import QuickAddScreen from '@/screens/QuickAddScreen';
-import MapScreen from '@/screens/MapScreen';
 import CalendarScreen from '@/screens/CalendarScreen';
 import SettingsScreen from '@/screens/SettingsScreen';
 import NotificationsScreen from '@/screens/NotificationsScreen';
 import NotificationSettingsScreen from '@/screens/NotificationSettingsScreen';
 import FocusModeScreen from '@/screens/FocusModeScreen';
+import StatsScreen from '@/screens/StatsScreen';
 
 import { RootStackParamList } from '@/types';
 
@@ -32,23 +32,36 @@ const Tab = createBottomTabNavigator();
 function TabNavigator() {
   const { colorScheme } = useThemeStore();
   const theme = getTheme(colorScheme);
+  const isDark = colorScheme === 'dark';
 
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: theme.colors.textSecondary,
+        tabBarInactiveTintColor: theme.colors.textTertiary,
         tabBarStyle: {
-          backgroundColor: theme.colors.surface,
-          borderTopColor: theme.colors.border,
-          height: 60,
-          paddingBottom: 8,
+          backgroundColor: isDark ? 'rgba(28, 28, 30, 0.94)' : 'rgba(255, 255, 255, 0.94)',
+          borderTopWidth: 0.5,
+          borderTopColor: isDark ? 'rgba(84, 84, 88, 0.65)' : 'rgba(0, 0, 0, 0.1)',
+          height: 84,
+          paddingBottom: 28,
           paddingTop: 8,
+          paddingHorizontal: 8,
+          position: 'absolute',
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: isDark ? 0.3 : 0.1,
+          shadowRadius: 16,
+          elevation: 8,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '600',
+          fontSize: 10,
+          fontWeight: '500',
+          marginTop: 4,
+        },
+        tabBarIconStyle: {
+          marginTop: 4,
         },
       }}
     >
@@ -57,8 +70,12 @@ function TabNavigator() {
         component={TodayScreen}
         options={{
           tabBarLabel: "Aujourd'hui",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="today-outline" size={size} color={color} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name={focused ? "today" : "today-outline"}
+              size={focused ? 26 : 24}
+              color={color}
+            />
           ),
         }}
       />
@@ -67,18 +84,12 @@ function TabNavigator() {
         component={TaskListScreen}
         options={{
           tabBarLabel: 'Tâches',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="list-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Map"
-        component={MapScreen}
-        options={{
-          tabBarLabel: 'Carte',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="map-outline" size={size} color={color} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name={focused ? "list" : "list-outline"}
+              size={focused ? 26 : 24}
+              color={color}
+            />
           ),
         }}
       />
@@ -87,8 +98,12 @@ function TabNavigator() {
         component={CalendarScreen}
         options={{
           tabBarLabel: 'Calendrier',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="calendar-outline" size={size} color={color} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name={focused ? "calendar" : "calendar-outline"}
+              size={focused ? 26 : 24}
+              color={color}
+            />
           ),
         }}
       />
@@ -96,9 +111,13 @@ function TabNavigator() {
         name="Settings"
         component={SettingsScreen}
         options={{
-          tabBarLabel: 'Paramètres',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="settings-outline" size={size} color={color} />
+          tabBarLabel: 'Réglages',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name={focused ? "settings" : "settings-outline"}
+              size={focused ? 26 : 24}
+              color={color}
+            />
           ),
         }}
       />
@@ -170,6 +189,14 @@ export default function RootNavigator() {
               component={FocusModeScreen}
               options={{
                 presentation: 'fullScreenModal',
+                animation: 'slide_from_bottom',
+              }}
+            />
+            <Stack.Screen
+              name="Stats"
+              component={StatsScreen}
+              options={{
+                presentation: 'modal',
                 animation: 'slide_from_bottom',
               }}
             />

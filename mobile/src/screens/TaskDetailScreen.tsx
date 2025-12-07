@@ -169,31 +169,33 @@ export default function TaskDetailScreen() {
 
           {/* Details Group */}
           <Group title="DÉTAILS">
-            <DetailRow
-              icon="calendar"
-              label="Date"
-              value={task.startDate ? format(new Date(task.startDate), 'd MMM yyyy', { locale: fr }) : 'Aucune'}
-              color={theme.colors.primary}
-              onPress={() => { /* TODO: Date Picker */ }}
-            />
-            <DetailRow
-              icon="time"
-              label="Heure"
-              value={task.startDate ? format(new Date(task.startDate), 'HH:mm') : '--:--'}
-              color={theme.colors.info}
-              onPress={() => { /* TODO: Time Picker */ }}
-            />
-            <DetailRow
-              icon="flag"
-              label="Priorité"
-              value={task.priority === 'high' ? 'Urgent' : task.priority === 'low' ? 'Faible' : 'Normal'}
-              color={task.priority === 'high' ? theme.colors.error : theme.colors.warning}
-              isLast
-              onPress={() => {
-                const nextPriority = task.priority === 'low' ? 'medium' : task.priority === 'medium' ? 'high' : 'low';
-                handleUpdate({ priority: nextPriority });
-              }}
-            />
+            <View style={styles.detailsContainer}>
+              <DetailRow
+                icon="calendar"
+                label="Date"
+                value={task.startDate ? format(new Date(task.startDate), 'd MMM yyyy', { locale: fr }) : 'Aucune'}
+                color={theme.colors.primary}
+                onPress={() => { /* TODO: Date Picker */ }}
+              />
+              <DetailRow
+                icon="time"
+                label="Heure"
+                value={task.startDate ? format(new Date(task.startDate), 'HH:mm') : '--:--'}
+                color={theme.colors.info}
+                onPress={() => { /* TODO: Time Picker */ }}
+              />
+              <DetailRow
+                icon="flag"
+                label="Priorité"
+                value={task.priority === 'high' ? 'Urgent' : task.priority === 'low' ? 'Faible' : 'Normal'}
+                color={task.priority === 'high' ? theme.colors.error : theme.colors.warning}
+                isLast
+                onPress={() => {
+                  const nextPriority = task.priority === 'low' ? 'medium' : task.priority === 'medium' ? 'high' : 'low';
+                  handleUpdate({ priority: nextPriority });
+                }}
+              />
+            </View>
           </Group>
 
           {/* Notes Group */}
@@ -319,11 +321,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
   },
+  detailsContainer: {
+    overflow: 'hidden',
+  },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    minHeight: 56,
+    minHeight: 58,
   },
   iconBox: {
     width: 30,

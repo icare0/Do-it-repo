@@ -31,7 +31,7 @@
         ]
       },
       "config": {
-        "googleMapsApiKey": "AIzaSyA3AsIvoyeasViVvlucuY4HGRY4Q4USdBc"
+        "googleMapsApiKey": "YOUR_IOS_GOOGLE_MAPS_API_KEY"
       }
     },
     "android": {
@@ -56,7 +56,7 @@
       "googleServicesFile": "./google-services.json",
       "config": {
         "googleMaps": {
-          "apiKey": "AIzaSyA3AsIvoyeasViVvlucuY4HGRY4Q4USdBc"
+          "apiKey": "YOUR_ANDROID_GOOGLE_MAPS_API_KEY"
         }
       }
     },
