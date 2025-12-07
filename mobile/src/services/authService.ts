@@ -1,6 +1,7 @@
 import auth from '@react-native-firebase/auth';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 import { apiService } from './api';
 import { useAuthStore } from '@/store/authStore';
 
@@ -8,14 +9,17 @@ const TOKEN_KEY = 'auth_token';
 const REFRESH_TOKEN_KEY = 'refresh_token';
 const USER_KEY = 'user';
 
+// Get Google Web Client ID from environment variables
+const GOOGLE_WEB_CLIENT_ID = Constants.expoConfig?.extra?.googleWebClientId || '731566945558-7232om519vm0ivgvour2mh7b5n83ju39.apps.googleusercontent.com';
+
 class AuthService {
   async initialize() {
     try {
       useAuthStore.getState().setLoading(true);
 
-      // Configure Google Sign In with the CORRECT Web Client ID
+      // Configure Google Sign In
       GoogleSignin.configure({
-        webClientId: '731566945558-7232om519vm0ivgvour2mh7b5n83ju39.apps.googleusercontent.com', // ✅ Client Web correct
+        webClientId: GOOGLE_WEB_CLIENT_ID,
         offlineAccess: true,
         forceCodeForRefreshToken: true,
       });

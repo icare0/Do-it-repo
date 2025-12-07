@@ -1,6 +1,7 @@
 import * as Calendar from 'expo-calendar';
 import { Platform } from 'react-native';
 import { CalendarEvent } from '@/types';
+import { apiService } from './api';
 
 class CalendarService {
   private defaultCalendarId: string | null = null;
@@ -76,26 +77,82 @@ class CalendarService {
 
   async getEvents(startDate: Date, endDate: Date): Promise<CalendarEvent[]> {
     try {
+      const allEvents: CalendarEvent[] = [];
+
+      // 1. Get events from device calendar
       const hasPermission = await this.requestPermissions();
-      if (!hasPermission) return [];
+      if (hasPermission) {
+        const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
+        const calendarIds = calendars.map((cal) => cal.id);
 
-      const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
-      const calendarIds = calendars.map((cal) => cal.id);
+        const deviceEvents = await Calendar.getEventsAsync(
+          calendarIds,
+          startDate,
+          endDate
+        );
 
-      const events = await Calendar.getEventsAsync(
-        calendarIds,
-        startDate,
-        endDate
-      );
+        const mappedDeviceEvents = deviceEvents.map((event) => ({
+          id: event.id,
+          title: event.title,
+          startDate: new Date(event.startDate),
+          endDate: new Date(event.endDate),
+          location: event.location,
+          notes: event.notes,
+          source: 'device' as const,
+        }));
 
-      return events.map((event) => ({
-        id: event.id,
-        title: event.title,
-        startDate: new Date(event.startDate),
-        endDate: new Date(event.endDate),
-        location: event.location,
-        notes: event.notes,
-      }));
+        allEvents.push(...mappedDeviceEvents);
+      }
+
+      // 2. Get events from Google Calendar via backend
+      try {
+        const googleCalendarResponse = await apiService.getCalendarEvents(
+          startDate.toISOString(),
+          endDate.toISOString()
+        );
+
+        if (googleCalendarResponse?.events && Array.isArray(googleCalendarResponse.events)) {
+          const googleEvents = googleCalendarResponse.events.map((event: any) => ({
+            id: event.id,
+            title: event.summary || event.title,
+            startDate: new Date(event.start?.dateTime || event.start?.date),
+            endDate: new Date(event.end?.dateTime || event.end?.date),
+            location: event.location,
+            notes: event.description,
+            source: 'google' as const,
+          }));
+
+          allEvents.push(...googleEvents);
+        }
+      } catch (apiError) {
+        console.log('Google Calendar sync not available:', apiError);
+        // Continue without Google Calendar events
+      }
+
+      // 3. Get Google Tasks
+      try {
+        const googleTasksResponse = await apiService.getGoogleTasks();
+
+        if (googleTasksResponse?.tasks && Array.isArray(googleTasksResponse.tasks)) {
+          const taskEvents = googleTasksResponse.tasks
+            .filter((task: any) => task.due)
+            .map((task: any) => ({
+              id: task.id,
+              title: task.title,
+              startDate: new Date(task.due),
+              endDate: new Date(task.due),
+              notes: task.notes,
+              source: 'google-tasks' as const,
+            }));
+
+          allEvents.push(...taskEvents);
+        }
+      } catch (apiError) {
+        console.log('Google Tasks sync not available:', apiError);
+        // Continue without Google Tasks
+      }
+
+      return allEvents;
     } catch (error) {
       console.error('Get events error:', error);
       return [];

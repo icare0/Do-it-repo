@@ -25,9 +25,6 @@ class SyncService {
 
     this.startPeriodicSync();
 
-    // FORCE le nettoyage de la base corrompue
-    await this.forceCleanDatabase();
-
     console.log("Sync service initialized (waiting for authentication)");
   }
 

@@ -389,24 +389,31 @@ export default function CalendarScreen() {
           )}
         </View>
 
-        {/* Info Card */}
-        <View
-          style={[
-            styles.infoCard,
-            { backgroundColor: `${theme.colors.primary}08`, borderColor: `${theme.colors.primary}30` },
-          ]}
-        >
-          <Ionicons name="information-circle" size={24} color={theme.colors.primary} />
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.infoTitle, { color: theme.colors.text }]}>
-              Synchronisation automatique
-            </Text>
-            <Text style={[styles.infoDescription, { color: theme.colors.textSecondary }]}>
-              {tasks.filter((t) => t.startDate).length} tâche(s) disponible(s) pour la synchronisation
-              {'\n'}
-              {calendarEvents.length} événement(s) importé(s) du calendrier
-            </Text>
-          </View>
+        {/* Summary Card */}
+        <View style={styles.summaryContainer}>
+          <Card variant="flat" padding="lg" borderRadiusSize="lg" style={styles.summaryCard}>
+            <View style={styles.summaryRow}>
+              <View style={styles.summaryItem}>
+                <Ionicons name="checkmark-circle" size={20} color={theme.colors.primary} />
+                <Text style={[styles.summaryValue, { color: theme.colors.text }]}>
+                  {tasks.filter((t) => t.startDate).length}
+                </Text>
+                <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>
+                  Tâches
+                </Text>
+              </View>
+              <View style={[styles.summaryDivider, { backgroundColor: theme.colors.border }]} />
+              <View style={styles.summaryItem}>
+                <Ionicons name="calendar" size={20} color={theme.colors.secondary} />
+                <Text style={[styles.summaryValue, { color: theme.colors.text }]}>
+                  {calendarEvents.length}
+                </Text>
+                <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>
+                  Événements
+                </Text>
+              </View>
+            </View>
+          </Card>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -420,18 +427,27 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 24,
-    paddingVertical: 16,
+    paddingVertical: 20,
   },
-  title: { fontSize: 32, fontWeight: '700' },
+  title: {
+    fontSize: 34,
+    fontWeight: '700',
+    letterSpacing: -0.5,
+  },
   syncButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 24,
     gap: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  syncText: { fontSize: 14, fontWeight: '600' },
+  syncText: { fontSize: 15, fontWeight: '600' },
   content: { padding: 24, paddingTop: 0 },
   calendarContainer: {
     borderRadius: 16,
@@ -527,21 +543,32 @@ const styles = StyleSheet.create({
   locationText: {
     fontSize: 12,
   },
-  infoCard: {
+  summaryContainer: {
+    marginTop: 16,
+  },
+  summaryCard: {
+    overflow: 'hidden',
+  },
+  summaryRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
+    alignItems: 'center',
   },
-  infoTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    marginBottom: 4,
+  summaryItem: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 8,
   },
-  infoDescription: {
-    fontSize: 13,
-    lineHeight: 18,
+  summaryDivider: {
+    width: 1,
+    height: 48,
+    marginHorizontal: 12,
+  },
+  summaryValue: {
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  summaryLabel: {
+    fontSize: 12,
+    fontWeight: '500',
   },
 });

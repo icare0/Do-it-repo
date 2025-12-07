@@ -1,10 +1,19 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '@/store/authStore';
+import Constants from 'expo-constants';
 
-const API_URL = __DEV__
-  ? 'http://192.168.1.59:3000/api'
-  : 'https://your-production-api.com/api';
+// Get API URL from environment variables
+const getApiUrl = () => {
+  if (__DEV__) {
+    // In development, try to use localhost or the DEV_API_URL from env
+    return Constants.expoConfig?.extra?.devApiUrl || 'http://localhost:3000/api';
+  }
+  // In production, use the API_URL from env
+  return Constants.expoConfig?.extra?.apiUrl || 'https://your-production-api.com/api';
+};
+
+const API_URL = getApiUrl();
 
 class ApiService {
   private client: AxiosInstance;
@@ -131,6 +140,18 @@ class ApiService {
 
   async connectGoogleCalendar(authCode: string) {
     const { data } = await this.client.post('/calendar/google/connect', { authCode });
+    return data;
+  }
+
+  async getCalendarEvents(startDate?: string, endDate?: string) {
+    const { data } = await this.client.get('/calendar/events', {
+      params: { startDate, endDate }
+    });
+    return data;
+  }
+
+  async getGoogleTasks() {
+    const { data } = await this.client.get('/calendar/google/tasks');
     return data;
   }
 
