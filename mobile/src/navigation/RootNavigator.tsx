@@ -39,26 +39,27 @@ function TabNavigator() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: theme.colors.textTertiary,
+        tabBarInactiveTintColor: isDark ? '#8E8E93' : '#8E8E93', // iOS gray
         tabBarStyle: {
-          backgroundColor: isDark ? 'rgba(28, 28, 30, 0.94)' : 'rgba(255, 255, 255, 0.94)',
-          borderTopWidth: 0.5,
-          borderTopColor: isDark ? 'rgba(84, 84, 88, 0.65)' : 'rgba(0, 0, 0, 0.1)',
-          height: 84,
-          paddingBottom: 28,
-          paddingTop: 8,
-          paddingHorizontal: 8,
+          backgroundColor: isDark
+            ? 'rgba(28, 28, 30, 0.72)' // iOS dark translucent
+            : 'rgba(249, 249, 249, 0.92)', // iOS light translucent
+          borderTopWidth: 0.33,
+          borderTopColor: isDark ? 'rgba(84, 84, 88, 0.48)' : 'rgba(0, 0, 0, 0.08)',
+          height: 50, // iOS standard tab bar height
+          paddingTop: 0,
+          paddingBottom: 0,
           position: 'absolute',
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: -4 },
-          shadowOpacity: isDark ? 0.3 : 0.1,
-          shadowRadius: 16,
-          elevation: 8,
+          backdropFilter: 'blur(20px)', // iOS blur effect (works on iOS)
+        },
+        tabBarItemStyle: {
+          paddingVertical: 6,
         },
         tabBarLabelStyle: {
           fontSize: 10,
           fontWeight: '500',
-          marginTop: 4,
+          marginTop: -2,
+          marginBottom: 2,
         },
         tabBarIconStyle: {
           marginTop: 4,
@@ -70,10 +71,10 @@ function TabNavigator() {
         component={TodayScreen}
         options={{
           tabBarLabel: "Aujourd'hui",
-          tabBarIcon: ({ color, size, focused }) => (
+          tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "today" : "today-outline"}
-              size={focused ? 26 : 24}
+              size={28}
               color={color}
             />
           ),
@@ -84,10 +85,10 @@ function TabNavigator() {
         component={TaskListScreen}
         options={{
           tabBarLabel: 'Tâches',
-          tabBarIcon: ({ color, size, focused }) => (
+          tabBarIcon: ({ color, focused }) => (
             <Ionicons
-              name={focused ? "list" : "list-outline"}
-              size={focused ? 26 : 24}
+              name={focused ? "checkmark-circle" : "checkmark-circle-outline"}
+              size={28}
               color={color}
             />
           ),
@@ -98,10 +99,10 @@ function TabNavigator() {
         component={CalendarScreen}
         options={{
           tabBarLabel: 'Calendrier',
-          tabBarIcon: ({ color, size, focused }) => (
+          tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "calendar" : "calendar-outline"}
-              size={focused ? 26 : 24}
+              size={28}
               color={color}
             />
           ),
@@ -112,10 +113,10 @@ function TabNavigator() {
         component={SettingsScreen}
         options={{
           tabBarLabel: 'Réglages',
-          tabBarIcon: ({ color, size, focused }) => (
+          tabBarIcon: ({ color, focused }) => (
             <Ionicons
-              name={focused ? "settings" : "settings-outline"}
-              size={focused ? 26 : 24}
+              name={focused ? "person-circle" : "person-circle-outline"}
+              size={28}
               color={color}
             />
           ),
