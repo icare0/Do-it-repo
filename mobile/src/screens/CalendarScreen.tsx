@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -47,14 +47,18 @@ export default function CalendarScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const isLoadingEventsRef = useRef(false); // Flag pour éviter les appels multiples
 
-  useEffect(() => {
-    loadCalendarEvents();
-  }, []);
+  const loadCalendarEvents = useCallback(async () => {
+    // Éviter les appels multiples
+    if (isLoadingEventsRef.current) {
+      console.log('⏸️ [CalendarScreen] Chargement déjà en cours, annulation...');
+      return;
+    }
 
-  const loadCalendarEvents = async () => {
     try {
       console.log('🖥️ [CalendarScreen] ========== CHARGEMENT DES ÉVÉNEMENTS ==========');
+      isLoadingEventsRef.current = true;
       setIsLoading(true);
 
       console.log('🖥️ [CalendarScreen] Demande de permissions...');
@@ -92,9 +96,14 @@ export default function CalendarScreen() {
       console.error('❌ [CalendarScreen] Erreur lors du chargement:', error);
     } finally {
       setIsLoading(false);
+      isLoadingEventsRef.current = false;
       console.log('🖥️ [CalendarScreen] ========== FIN CHARGEMENT ==========');
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadCalendarEvents();
+  }, []);
 
   const handleRefresh = async () => {
     setRefreshing(true);

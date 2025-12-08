@@ -5,17 +5,28 @@ import { apiService } from './api';
 
 class CalendarService {
   private defaultCalendarId: string | null = null;
+  private permissionsGranted: boolean | null = null; // Cache pour les permissions
 
   async requestPermissions(): Promise<boolean> {
     try {
+      // Si déjà accordées, retourner le résultat caché
+      if (this.permissionsGranted !== null) {
+        console.log('📅 [CalendarService] Permissions déjà vérifiées:', this.permissionsGranted);
+        return this.permissionsGranted;
+      }
+
       console.log('📅 [CalendarService] Demande de permissions calendrier...');
       const { status } = await Calendar.requestCalendarPermissionsAsync();
       console.log('📅 [CalendarService] Statut des permissions:', status);
       const granted = status === 'granted';
       console.log('📅 [CalendarService] Permissions accordées:', granted);
+
+      // Cacher le résultat
+      this.permissionsGranted = granted;
       return granted;
     } catch (error) {
       console.error('❌ [CalendarService] Erreur permissions calendrier:', error);
+      this.permissionsGranted = false;
       return false;
     }
   }
