@@ -448,7 +448,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   syncText: { fontSize: 15, fontWeight: '600' },
-  content: { padding: 24, paddingTop: 0 },
+  content: { padding: 24, paddingTop: 0, paddingBottom: 94 }, // Space for tab bar (50px + 44px padding)
   calendarContainer: {
     borderRadius: 16,
     overflow: 'hidden',

@@ -227,6 +227,17 @@ export default function TodayScreen() {
                   <View style={[styles.notificationDot, { backgroundColor: theme.colors.error }]} />
                 )}
               </TouchableOpacity>
+              {/* Add Task Button - iOS Style */}
+              <TouchableOpacity
+                style={[styles.addButton, { backgroundColor: theme.colors.primary }]}
+                onPress={() => {
+                  hapticsService.medium();
+                  navigation.navigate('QuickAdd' as never);
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="add" size={24} color="#FFFFFF" />
+              </TouchableOpacity>
             </View>
           </View>
           <Text style={[styles.largeTitle, { color: theme.colors.text }]}>
@@ -512,27 +523,6 @@ export default function TodayScreen() {
           </View>
         )}
       </Animated.ScrollView>
-
-      {/* Floating Action Button */}
-      <View style={styles.fabContainer}>
-        <TouchableOpacity
-          style={[styles.fab, shadows.xl]}
-          onPress={() => {
-            hapticsService.medium();
-            navigation.navigate('QuickAdd' as never);
-          }}
-          activeOpacity={0.8}
-        >
-          <LinearGradient
-            colors={theme.colors.gradient.primary}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.fabGradient}
-          >
-            <Ionicons name="add" size={28} color={theme.colors.textOnColor} />
-          </LinearGradient>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 }
@@ -581,7 +571,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 120,
+    paddingBottom: 70, // Space for tab bar (50px + 20px margin)
   },
   largeHeader: {
     paddingHorizontal: spacing.xl,
@@ -605,7 +595,15 @@ const styles = StyleSheet.create({
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: spacing.sm,
+  },
+  addButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.md,
   },
   streakContainer: {
     flexDirection: 'row',
@@ -773,22 +771,5 @@ const styles = StyleSheet.create({
   emptyText: {
     ...typography.subheadline,
     textAlign: 'center',
-  },
-  fabContainer: {
-    position: 'absolute',
-    bottom: spacing.xxxl,
-    right: spacing.xl,
-  },
-  fab: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    overflow: 'hidden',
-  },
-  fabGradient: {
-    width: '100%',
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });

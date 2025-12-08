@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
   },
   tabText: { fontSize: 14, fontWeight: '600' },
 
-  listContent: { paddingBottom: 100 },
+  listContent: { paddingBottom: 70 }, // Space for tab bar
   emptyState: { alignItems: 'center', marginTop: 40, opacity: 0.5 },
   emptyText: { marginTop: 12, fontSize: 16, fontWeight: '500' },
 });
