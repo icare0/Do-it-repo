@@ -7,7 +7,7 @@ import Constants from 'expo-constants';
 const getApiUrl = () => {
   if (__DEV__) {
     // In development, try to use localhost or the DEV_API_URL from env
-    return Constants.expoConfig?.extra?.devApiUrl || 'http://localhost:3000/api';
+    return Constants.expoConfig?.extra?.devApiUrl || 'http://192.168.1.59:3000/api';
   }
   // In production, use the API_URL from env
   return Constants.expoConfig?.extra?.apiUrl || 'https://your-production-api.com/api';
