@@ -50,7 +50,6 @@ function TabNavigator() {
           paddingTop: 0,
           paddingBottom: 0,
           position: 'absolute',
-          backdropFilter: 'blur(20px)', // iOS blur effect (works on iOS)
         },
         tabBarItemStyle: {
           paddingVertical: 6,

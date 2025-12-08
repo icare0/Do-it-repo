@@ -176,10 +176,10 @@ class VoiceService {
 
   async transcribeAudio(audioUri: string): Promise<VoiceTranscription | null> {
     try {
-      // If no API key, use mock transcription for demo
+      // If no API key, return null
       if (!this.apiKey) {
-        console.warn('No Whisper API key configured, using mock transcription');
-        return this.mockTranscription();
+        console.error('No Whisper API key configured. Voice transcription is disabled.');
+        return null;
       }
 
       // Read the file
@@ -230,24 +230,6 @@ class VoiceService {
       console.error('Error transcribing audio:', error);
       return null;
     }
-  }
-
-  private mockTranscription(): VoiceTranscription {
-    // Mock transcription for testing without API key
-    const mockTexts = [
-      'Rendez-vous dentiste demain à 14h',
-      'Acheter du pain ce soir',
-      'Rappeler Marie pour le projet urgent',
-      'Réunion équipe lundi 10h',
-    ];
-    const text = mockTexts[Math.floor(Math.random() * mockTexts.length)];
-    const parsedTask = nlpService.parseQuickAdd(text);
-
-    return {
-      text,
-      confidence: 0.9,
-      parsedTask,
-    };
   }
 
   async recordAndTranscribe(): Promise<VoiceTranscription | null> {
