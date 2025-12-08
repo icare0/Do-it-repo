@@ -23,7 +23,6 @@ import { SwipeableRow } from '@/components/ui/SwipeableRow';
 import { VoiceButton } from '@/components/ui/VoiceButton';
 import { SkeletonTaskCard, SkeletonList } from '@/components/ui/Skeleton';
 import { OfflineBadge } from '@/components/ui/OfflineIndicator';
-import { DailyBriefing } from '@/components/DailyBriefing';
 import { useThemeStore } from '@/store/themeStore';
 import { useTaskStore } from '@/store/taskStore';
 import { useSyncStore } from '@/store/syncStore';
@@ -43,28 +42,11 @@ export default function TodayScreen() {
   const { isSyncing } = useSyncStore();
   const { unreadCount } = useNotificationStore();
   const { points, level, streak } = useUserStore();
-  const [showBriefing, setShowBriefing] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [scrollY] = useState(new Animated.Value(0));
 
   const today = new Date();
   const todayStr = format(today, 'yyyy-MM-dd');
-
-  useEffect(() => {
-    checkBriefingStatus();
-  }, []);
-
-  const checkBriefingStatus = async () => {
-    const lastDismissed = await AsyncStorage.getItem('briefing_dismissed_date');
-    if (lastDismissed === todayStr) {
-      setShowBriefing(false);
-    }
-  };
-
-  const handleDismissBriefing = async () => {
-    await AsyncStorage.setItem('briefing_dismissed_date', todayStr);
-    setShowBriefing(false);
-  };
 
   const todayTasks = tasks
     .filter(
@@ -227,91 +209,12 @@ export default function TodayScreen() {
                   <View style={[styles.notificationDot, { backgroundColor: theme.colors.error }]} />
                 )}
               </TouchableOpacity>
-              {/* Add Task Button - iOS Style */}
-              <TouchableOpacity
-                style={[styles.addButton, { backgroundColor: theme.colors.primary }]}
-                onPress={() => {
-                  hapticsService.medium();
-                  navigation.navigate('QuickAdd' as never);
-                }}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="add" size={24} color="#FFFFFF" />
-              </TouchableOpacity>
             </View>
           </View>
           <Text style={[styles.largeTitle, { color: theme.colors.text }]}>
             Aujourd'hui
           </Text>
         </View>
-
-        {/* Daily Briefing */}
-        {showBriefing && (
-          <View style={styles.briefingContainer}>
-            <DailyBriefing
-              onDismiss={handleDismissBriefing}
-              onTaskPress={() => navigation.navigate('TaskList' as never)}
-              onFocusPress={() => navigation.navigate('FocusMode' as never)}
-            />
-          </View>
-        )}
-
-        {/* Progress Card */}
-        {totalTasks > 0 && (
-          <Card variant="elevated" padding="xl" borderRadiusSize="xxl" style={styles.progressCard}>
-            <View style={styles.progressHeader}>
-              <View>
-                <Text style={[styles.progressTitle, { color: theme.colors.text }]}>
-                  Progression du jour
-                </Text>
-                <Text style={[styles.progressSubtitle, { color: theme.colors.textSecondary }]}>
-                  {completedToday.length} sur {totalTasks} terminées
-                </Text>
-              </View>
-            </View>
-
-            {/* Circular Progress */}
-            <View style={styles.progressCircleContainer}>
-              <View style={styles.progressCircleWrapper}>
-                {/* Background circle */}
-                <View
-                  style={[
-                    styles.progressCircleBg,
-                    {
-                      borderColor: theme.colors.borderLight,
-                      width: 120,
-                      height: 120,
-                      borderRadius: 60,
-                    }
-                  ]}
-                />
-                {/* Progress circle */}
-                <LinearGradient
-                  colors={theme.colors.gradient.primary}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={[
-                    StyleSheet.absoluteFill,
-                    {
-                      width: 120,
-                      height: 120,
-                      borderRadius: 60,
-                      opacity: progressPercent,
-                    },
-                  ]}
-                />
-                <View style={styles.progressCircleInner}>
-                  <Text style={[styles.progressPercentText, { color: theme.colors.text }]}>
-                    {Math.round(progressPercent * 100)}%
-                  </Text>
-                  <Text style={[styles.progressLabel, { color: theme.colors.textSecondary }]}>
-                    complété
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </Card>
-        )}
 
         {/* Today's Tasks */}
         <View style={styles.section}>
@@ -523,6 +426,27 @@ export default function TodayScreen() {
           </View>
         )}
       </Animated.ScrollView>
+
+      {/* Floating Action Button */}
+      <View style={styles.fabContainer}>
+        <TouchableOpacity
+          style={[styles.fab, shadows.xl]}
+          onPress={() => {
+            hapticsService.medium();
+            navigation.navigate('QuickAdd' as never);
+          }}
+          activeOpacity={0.8}
+        >
+          <LinearGradient
+            colors={theme.colors.gradient.primary}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.fabGradient}
+          >
+            <Ionicons name="add" size={28} color={theme.colors.textOnColor} />
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
