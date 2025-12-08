@@ -57,47 +57,40 @@ export default function CalendarScreen() {
     }
 
     try {
-      console.log('🖥️ [CalendarScreen] ========== CHARGEMENT DES ÉVÉNEMENTS ==========');
+      console.log('🖥️ [CalendarScreen] ==========================================');
+      console.log('🖥️ [CalendarScreen] 📱 CALENDRIER - CHARGEMENT DES ÉVÉNEMENTS');
+      console.log('🖥️ [CalendarScreen] ==========================================');
+
       isLoadingEventsRef.current = true;
       setIsLoading(true);
 
-      console.log('🖥️ [CalendarScreen] Demande de permissions...');
-      const hasPermission = await calendarService.requestPermissions();
-      console.log('🖥️ [CalendarScreen] Permissions:', hasPermission);
+      // Calculer la période (3 mois)
+      const start = startOfMonth(new Date());
+      const end = endOfMonth(new Date());
+      start.setMonth(start.getMonth() - 1);
+      end.setMonth(end.getMonth() + 1);
 
-      if (hasPermission) {
-        const start = startOfMonth(new Date());
-        const end = endOfMonth(new Date());
-        // Get events for 3 months
-        start.setMonth(start.getMonth() - 1);
-        end.setMonth(end.getMonth() + 1);
+      console.log('🖥️ [CalendarScreen] 📆 Période: du', start.toLocaleDateString('fr-FR'), 'au', end.toLocaleDateString('fr-FR'));
+      console.log('🖥️ [CalendarScreen] 🔄 Appel au service...');
 
-        console.log('🖥️ [CalendarScreen] Appel à calendarService.getEvents()...');
-        console.log('🖥️ [CalendarScreen] Période:', start.toISOString(), 'à', end.toISOString());
+      // Appel simple au service (qui gère tout)
+      const events = await calendarService.getEvents(start, end);
 
-        const events = await calendarService.getEvents(start, end);
+      console.log('🖥️ [CalendarScreen] ');
+      console.log('🖥️ [CalendarScreen] 📊 RÉSULTAT:');
+      console.log('🖥️ [CalendarScreen] ✅', events.length, 'événement(s) reçu(s)');
 
-        console.log('🖥️ [CalendarScreen] ========== ÉVÉNEMENTS REÇUS ==========');
-        console.log('🖥️ [CalendarScreen] Nombre total:', events.length);
-        events.forEach((event, index) => {
-          console.log(`🖥️ [CalendarScreen] Événement ${index + 1}:`, {
-            title: event.title,
-            source: event.source,
-            startDate: event.startDate.toISOString(),
-          });
-        });
+      setCalendarEvents(events);
 
-        setCalendarEvents(events);
-        console.log('✅ [CalendarScreen] État mis à jour avec', events.length, 'événements');
-      } else {
-        console.log('❌ [CalendarScreen] Pas de permissions, impossible de charger les événements');
-      }
+      console.log('🖥️ [CalendarScreen] 💾 État mis à jour');
+      console.log('🖥️ [CalendarScreen] ==========================================');
     } catch (error) {
-      console.error('❌ [CalendarScreen] Erreur lors du chargement:', error);
+      console.error('❌ [CalendarScreen] ==========================================');
+      console.error('❌ [CalendarScreen] ERREUR:', error);
+      console.error('❌ [CalendarScreen] ==========================================');
     } finally {
       setIsLoading(false);
       isLoadingEventsRef.current = false;
-      console.log('🖥️ [CalendarScreen] ========== FIN CHARGEMENT ==========');
     }
   }, []);
 
@@ -116,32 +109,21 @@ export default function CalendarScreen() {
       setIsSyncing(true);
       await hapticsService.medium();
 
-      const hasPermission = await calendarService.requestPermissions();
-      if (!hasPermission) {
-        Alert.alert(
-          'Permission requise',
-          "Veuillez autoriser l'accès au calendrier pour synchroniser vos tâches.",
-          [{ text: 'OK' }]
-        );
-        return;
-      }
-
-      const tasksWithDate = tasks.filter((t) => t.startDate);
-      await calendarService.syncTasksToCalendar(tasks);
+      console.log('🔄 [CalendarScreen] Synchronisation manuelle demandée...');
       await loadCalendarEvents();
 
       await hapticsService.success();
       Alert.alert(
-        'Synchronisation réussie',
-        `${tasksWithDate.length} tâche(s) synchronisée(s) avec votre calendrier.`,
+        'Calendrier actualisé',
+        'Les événements ont été rechargés.',
         [{ text: 'OK' }]
       );
     } catch (error) {
-      console.error('Calendar sync error:', error);
+      console.error('❌ [CalendarScreen] Erreur de sync:', error);
       await hapticsService.error();
       Alert.alert(
-        'Erreur de synchronisation',
-        'Impossible de synchroniser les tâches avec le calendrier.',
+        'Erreur',
+        'Impossible d\'actualiser le calendrier.',
         [{ text: 'OK' }]
       );
     } finally {
