@@ -54,8 +54,13 @@ export default function CalendarScreen() {
 
   const loadCalendarEvents = async () => {
     try {
+      console.log('🖥️ [CalendarScreen] ========== CHARGEMENT DES ÉVÉNEMENTS ==========');
       setIsLoading(true);
+
+      console.log('🖥️ [CalendarScreen] Demande de permissions...');
       const hasPermission = await calendarService.requestPermissions();
+      console.log('🖥️ [CalendarScreen] Permissions:', hasPermission);
+
       if (hasPermission) {
         const start = startOfMonth(new Date());
         const end = endOfMonth(new Date());
@@ -63,13 +68,31 @@ export default function CalendarScreen() {
         start.setMonth(start.getMonth() - 1);
         end.setMonth(end.getMonth() + 1);
 
+        console.log('🖥️ [CalendarScreen] Appel à calendarService.getEvents()...');
+        console.log('🖥️ [CalendarScreen] Période:', start.toISOString(), 'à', end.toISOString());
+
         const events = await calendarService.getEvents(start, end);
+
+        console.log('🖥️ [CalendarScreen] ========== ÉVÉNEMENTS REÇUS ==========');
+        console.log('🖥️ [CalendarScreen] Nombre total:', events.length);
+        events.forEach((event, index) => {
+          console.log(`🖥️ [CalendarScreen] Événement ${index + 1}:`, {
+            title: event.title,
+            source: event.source,
+            startDate: event.startDate.toISOString(),
+          });
+        });
+
         setCalendarEvents(events);
+        console.log('✅ [CalendarScreen] État mis à jour avec', events.length, 'événements');
+      } else {
+        console.log('❌ [CalendarScreen] Pas de permissions, impossible de charger les événements');
       }
     } catch (error) {
-      console.error('Error loading calendar events:', error);
+      console.error('❌ [CalendarScreen] Erreur lors du chargement:', error);
     } finally {
       setIsLoading(false);
+      console.log('🖥️ [CalendarScreen] ========== FIN CHARGEMENT ==========');
     }
   };
 
