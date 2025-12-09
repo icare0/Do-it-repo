@@ -6,6 +6,12 @@ import nlpService from '../services/nlpService';
 import cacheService from '../services/cacheService';
 import geofenceService from '../services/geofenceService';
 import gamificationService from '../services/gamificationService';
+import mongoose from 'mongoose';
+
+// Helper to check if a string is a valid MongoDB ObjectId
+const isValidObjectId = (id: string): boolean => {
+  return mongoose.Types.ObjectId.isValid(id);
+};
 
 export const getTasks = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -325,12 +331,12 @@ export const syncTasks = async (req: AuthRequest, res: Response): Promise<void> 
             continue;
           }
 
-          // ✅ Check for existing task to avoid duplicates
+          // ✅ Check for existing task to avoid duplicates (by title and recent creation)
+          // Don't check by _id since client IDs are not valid MongoDB ObjectIds
           const existingTask = await Task.findOne({
-            $or: [
-              { _id: clientTask.id },
-              { userId: req.user.id, title: clientTask.data.title }
-            ]
+            userId: req.user.id,
+            title: clientTask.data.title,
+            createdAt: { $gte: new Date(Date.now() - 60000) } // Within last minute
           });
 
           if (existingTask) {
@@ -349,9 +355,8 @@ export const syncTasks = async (req: AuthRequest, res: Response): Promise<void> 
             );
             if (updatedTask) syncedTasks.push(updatedTask);
           } else {
-            // Create new task
+            // Create new task - let MongoDB generate the ObjectId
             const taskData = {
-              _id: clientTask.id, // ✅ Use client ID to maintain consistency
               ...clientTask.data,
               userId: req.user.id,
             };
@@ -365,9 +370,22 @@ export const syncTasks = async (req: AuthRequest, res: Response): Promise<void> 
             }
 
             const task = await Task.create(taskData);
-            syncedTasks.push(task);
+
+            // Return both the server-generated _id and the client's original id for mapping
+            const taskWithMapping = {
+              ...task.toObject(),
+              clientId: clientTask.id, // Include client's ID for mapping
+            };
+
+            syncedTasks.push(taskWithMapping);
           }
         } else if (clientTask.operation === 'update') {
+          // Check if ID is valid before attempting update
+          if (!isValidObjectId(clientTask.id)) {
+            errors.push(`Task ${clientTask.id}: Invalid ObjectId format`);
+            continue;
+          }
+
           const updateData = { ...clientTask.data, updatedAt: new Date() };
 
           // ✅ Convert date strings
@@ -390,6 +408,12 @@ export const syncTasks = async (req: AuthRequest, res: Response): Promise<void> 
             errors.push(`Task ${clientTask.id}: Not found for update`);
           }
         } else if (clientTask.operation === 'delete') {
+          // Check if ID is valid before attempting delete
+          if (!isValidObjectId(clientTask.id)) {
+            errors.push(`Task ${clientTask.id}: Invalid ObjectId format`);
+            continue;
+          }
+
           const deletedTask = await Task.findOneAndDelete({
             _id: clientTask.id,
             userId: req.user.id,
