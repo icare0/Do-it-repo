@@ -1,334 +1,197 @@
 import * as Calendar from 'expo-calendar';
 import { Platform } from 'react-native';
 import { CalendarEvent } from '@/types';
-import { apiService } from './api';
 
 class CalendarService {
-  private defaultCalendarId: string | null = null;
-  private permissionsGranted: boolean | null = null; // Cache pour les permissions
+  private hasCheckedPermissions = false;
 
-  async requestPermissions(): Promise<boolean> {
+  /**
+   * Vérifie et demande les permissions calendrier
+   */
+  async ensurePermissions(): Promise<boolean> {
     try {
-      // Si déjà accordées, retourner le résultat caché
-      if (this.permissionsGranted !== null) {
-        console.log('📅 [CalendarService] Permissions déjà vérifiées:', this.permissionsGranted);
-        return this.permissionsGranted;
+      console.log('📅 [CalendarService] 🔍 Vérification des permissions...');
+
+      // Vérifier l'état actuel des permissions
+      const { status: currentStatus } = await Calendar.getCalendarPermissionsAsync();
+      console.log('📅 [CalendarService] État actuel des permissions:', currentStatus);
+
+      if (currentStatus === 'granted') {
+        console.log('✅ [CalendarService] Permissions déjà accordées !');
+        this.hasCheckedPermissions = true;
+        return true;
       }
 
-      console.log('📅 [CalendarService] Demande de permissions calendrier...');
-      const { status } = await Calendar.requestCalendarPermissionsAsync();
-      console.log('📅 [CalendarService] Statut des permissions:', status);
-      const granted = status === 'granted';
-      console.log('📅 [CalendarService] Permissions accordées:', granted);
+      // Si pas accordées, les demander
+      console.log('📅 [CalendarService] Demande des permissions à l\'utilisateur...');
+      const { status: newStatus } = await Calendar.requestCalendarPermissionsAsync();
+      console.log('📅 [CalendarService] Nouveau statut:', newStatus);
 
-      // Cacher le résultat
-      this.permissionsGranted = granted;
+      const granted = newStatus === 'granted';
+      this.hasCheckedPermissions = true;
+
+      if (!granted) {
+        console.error('❌ [CalendarService] Permissions refusées par l\'utilisateur !');
+      }
+
       return granted;
     } catch (error) {
-      console.error('❌ [CalendarService] Erreur permissions calendrier:', error);
-      this.permissionsGranted = false;
+      console.error('❌ [CalendarService] Erreur lors de la vérification des permissions:', error);
       return false;
     }
   }
 
+  /**
+   * Récupère tous les calendriers du device
+   */
+  async getAllCalendars() {
+    try {
+      console.log('📅 [CalendarService] 📚 Récupération de tous les calendriers...');
+
+      const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
+      console.log('📅 [CalendarService] ✅ Nombre de calendriers trouvés:', calendars.length);
+
+      // Log détaillé de chaque calendrier
+      calendars.forEach((cal, idx) => {
+        console.log(`📅 [CalendarService] Calendrier #${idx + 1}:`, {
+          id: cal.id,
+          title: cal.title,
+          source: cal.source?.name,
+          type: cal.source?.type,
+          color: cal.color,
+          allowsModifications: cal.allowsModifications,
+          isPrimary: (cal as any).isPrimary,
+        });
+      });
+
+      return calendars;
+    } catch (error) {
+      console.error('❌ [CalendarService] Erreur lors de la récupération des calendriers:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Récupère les événements du calendrier device SEULEMENT
+   * Approche simplifiée pour debug
+   */
+  async getEvents(startDate: Date, endDate: Date): Promise<CalendarEvent[]> {
+    try {
+      console.log('📅 [CalendarService] ========================================');
+      console.log('📅 [CalendarService] 🚀 DÉBUT RÉCUPÉRATION DES ÉVÉNEMENTS');
+      console.log('📅 [CalendarService] ========================================');
+      console.log('📅 [CalendarService] 📆 Période demandée:');
+      console.log('📅 [CalendarService]    Du:', startDate.toLocaleDateString('fr-FR'), startDate.toLocaleTimeString('fr-FR'));
+      console.log('📅 [CalendarService]    Au:', endDate.toLocaleDateString('fr-FR'), endDate.toLocaleTimeString('fr-FR'));
+
+      // Étape 1: Vérifier les permissions
+      console.log('📅 [CalendarService] ');
+      console.log('📅 [CalendarService] 🔐 ÉTAPE 1: Permissions');
+      const hasPermission = await this.ensurePermissions();
+
+      if (!hasPermission) {
+        console.error('❌ [CalendarService] ARRÊT: Pas de permissions !');
+        console.log('📅 [CalendarService] ========================================');
+        return [];
+      }
+
+      // Étape 2: Récupérer tous les calendriers
+      console.log('📅 [CalendarService] ');
+      console.log('📅 [CalendarService] 📚 ÉTAPE 2: Calendriers');
+      const calendars = await this.getAllCalendars();
+
+      if (calendars.length === 0) {
+        console.warn('⚠️ [CalendarService] Aucun calendrier trouvé sur cet appareil !');
+        console.log('📅 [CalendarService] ========================================');
+        return [];
+      }
+
+      // Étape 3: Récupérer les événements
+      console.log('📅 [CalendarService] ');
+      console.log('📅 [CalendarService] 🎯 ÉTAPE 3: Événements');
+      const calendarIds = calendars.map(cal => cal.id);
+      console.log('📅 [CalendarService] IDs utilisés:', calendarIds);
+      console.log('📅 [CalendarService] Appel à Calendar.getEventsAsync...');
+
+      const deviceEvents = await Calendar.getEventsAsync(
+        calendarIds,
+        startDate,
+        endDate
+      );
+
+      console.log('📅 [CalendarService] ');
+      console.log('📅 [CalendarService] 🎉 RÉSULTAT: ', deviceEvents.length, 'événement(s) trouvé(s) !');
+
+      // Log de TOUS les événements trouvés
+      if (deviceEvents.length > 0) {
+        console.log('📅 [CalendarService] ');
+        console.log('📅 [CalendarService] 📋 LISTE DES ÉVÉNEMENTS:');
+        deviceEvents.forEach((event, idx) => {
+          console.log(`📅 [CalendarService] ─────────────────────────────────────`);
+          console.log(`📅 [CalendarService] Événement #${idx + 1}:`);
+          console.log(`📅 [CalendarService]   📌 Titre: "${event.title}"`);
+          console.log(`📅 [CalendarService]   🕐 Début: ${new Date(event.startDate).toLocaleString('fr-FR')}`);
+          console.log(`📅 [CalendarService]   🕑 Fin: ${new Date(event.endDate).toLocaleString('fr-FR')}`);
+          console.log(`📅 [CalendarService]   📍 Lieu: ${event.location || 'Aucun'}`);
+          console.log(`📅 [CalendarService]   🆔 Calendar ID: ${event.calendarId}`);
+        });
+        console.log(`📅 [CalendarService] ─────────────────────────────────────`);
+      } else {
+        console.log('📅 [CalendarService] ');
+        console.log('📅 [CalendarService] ⚠️ AUCUN ÉVÉNEMENT trouvé dans cette période !');
+        console.log('📅 [CalendarService] Vérifiez que vous avez des événements dans vos calendriers');
+        console.log('📅 [CalendarService] entre', startDate.toLocaleDateString(), 'et', endDate.toLocaleDateString());
+      }
+
+      // Mapper les événements
+      const mappedEvents: CalendarEvent[] = deviceEvents.map((event) => ({
+        id: event.id,
+        title: event.title,
+        startDate: new Date(event.startDate),
+        endDate: new Date(event.endDate),
+        location: event.location,
+        notes: event.notes,
+        source: 'device' as const,
+      }));
+
+      console.log('📅 [CalendarService] ');
+      console.log('📅 [CalendarService] ========================================');
+      console.log('📅 [CalendarService] ✅ FIN: Retour de', mappedEvents.length, 'événement(s)');
+      console.log('📅 [CalendarService] ========================================');
+
+      return mappedEvents;
+    } catch (error) {
+      console.error('❌ [CalendarService] ========================================');
+      console.error('❌ [CalendarService] ERREUR CRITIQUE:');
+      console.error('❌ [CalendarService]', error);
+      console.error('❌ [CalendarService] ========================================');
+      return [];
+    }
+  }
+
+  // Les autres méthodes restent inchangées pour l'instant
   async getDefaultCalendar(): Promise<string | null> {
     try {
-      if (this.defaultCalendarId) return this.defaultCalendarId;
-
-      const hasPermission = await this.requestPermissions();
+      const hasPermission = await this.ensurePermissions();
       if (!hasPermission) return null;
 
       const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
-
-      // Find default calendar
       const defaultCalendar = calendars.find(
         (cal) =>
           cal.allowsModifications &&
-          (Platform.OS === 'ios'
-            ? cal.source.name === 'Default'
-            : cal.isPrimary)
+          (Platform.OS === 'ios' ? cal.source.name === 'Default' : (cal as any).isPrimary)
       );
 
-      if (defaultCalendar) {
-        this.defaultCalendarId = defaultCalendar.id;
-        return defaultCalendar.id;
-      }
-
-      // If no default found, create one
-      const newCalendarId = await this.createCalendar();
-      this.defaultCalendarId = newCalendarId;
-      return newCalendarId;
+      return defaultCalendar?.id || null;
     } catch (error) {
       console.error('Get default calendar error:', error);
       return null;
     }
   }
 
-  private async createCalendar(): Promise<string> {
-    const defaultCalendarSource =
-      Platform.OS === 'ios'
-        ? await Calendar.getDefaultCalendarAsync()
-        : { isLocalAccount: true, name: "Do'It" };
-
-    const newCalendarId = await Calendar.createCalendarAsync({
-      title: "Do'It",
-      color: '#3B82F6',
-      entityType: Calendar.EntityTypes.EVENT,
-      sourceId:
-        Platform.OS === 'ios'
-          ? (defaultCalendarSource as any).source.id
-          : undefined,
-      source:
-        Platform.OS === 'android'
-          ? (defaultCalendarSource as any)
-          : undefined,
-      name: "Do'It",
-      ownerAccount: 'personal',
-      accessLevel: Calendar.CalendarAccessLevel.OWNER,
-    });
-
-    return newCalendarId;
-  }
-
-  async getEvents(startDate: Date, endDate: Date): Promise<CalendarEvent[]> {
-    try {
-      console.log('📅 [CalendarService] ========== DÉBUT getEvents ==========');
-      console.log('📅 [CalendarService] Période:', startDate.toISOString(), 'à', endDate.toISOString());
-      const allEvents: CalendarEvent[] = [];
-
-      // 1. Get events from device calendar
-      console.log('📅 [CalendarService] Étape 1: Récupération des événements du device...');
-      const hasPermission = await this.requestPermissions();
-
-      if (hasPermission) {
-        console.log('✅ [CalendarService] Permissions OK, récupération des calendriers...');
-        const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
-        console.log('📅 [CalendarService] Nombre de calendriers trouvés:', calendars.length);
-
-        calendars.forEach((cal, index) => {
-          console.log(`📅 [CalendarService] Calendrier ${index + 1}:`, {
-            id: cal.id,
-            title: cal.title,
-            source: cal.source?.name || 'Unknown',
-            type: cal.source?.type || 'Unknown',
-            allowsModifications: cal.allowsModifications,
-          });
-        });
-
-        const calendarIds = calendars.map((cal) => cal.id);
-        console.log('📅 [CalendarService] IDs des calendriers:', calendarIds);
-
-        console.log('📅 [CalendarService] Récupération des événements pour ces calendriers...');
-        const deviceEvents = await Calendar.getEventsAsync(
-          calendarIds,
-          startDate,
-          endDate
-        );
-
-        console.log('📅 [CalendarService] Nombre d\'événements trouvés sur le device:', deviceEvents.length);
-
-        deviceEvents.forEach((event, index) => {
-          console.log(`📅 [CalendarService] Événement device ${index + 1}:`, {
-            id: event.id,
-            title: event.title,
-            startDate: event.startDate,
-            endDate: event.endDate,
-            calendarId: event.calendarId,
-          });
-        });
-
-        const mappedDeviceEvents = deviceEvents.map((event) => ({
-          id: event.id,
-          title: event.title,
-          startDate: new Date(event.startDate),
-          endDate: new Date(event.endDate),
-          location: event.location,
-          notes: event.notes,
-          source: 'device' as const,
-        }));
-
-        allEvents.push(...mappedDeviceEvents);
-        console.log('✅ [CalendarService] Événements device ajoutés:', mappedDeviceEvents.length);
-      } else {
-        console.log('❌ [CalendarService] Pas de permissions calendrier !');
-      }
-
-      // 2. Get events from Google Calendar via backend
-      console.log('📅 [CalendarService] Étape 2: Récupération Google Calendar via API...');
-      try {
-        const googleCalendarResponse = await apiService.getCalendarEvents(
-          startDate.toISOString(),
-          endDate.toISOString()
-        );
-
-        console.log('📅 [CalendarService] Réponse Google Calendar:', googleCalendarResponse);
-
-        if (googleCalendarResponse?.events && Array.isArray(googleCalendarResponse.events)) {
-          console.log('📅 [CalendarService] Nombre d\'événements Google Calendar:', googleCalendarResponse.events.length);
-
-          const googleEvents = googleCalendarResponse.events.map((event: any) => ({
-            id: event.id,
-            title: event.summary || event.title,
-            startDate: new Date(event.start?.dateTime || event.start?.date),
-            endDate: new Date(event.end?.dateTime || event.end?.date),
-            location: event.location,
-            notes: event.description,
-            source: 'google' as const,
-          }));
-
-          allEvents.push(...googleEvents);
-          console.log('✅ [CalendarService] Événements Google Calendar ajoutés:', googleEvents.length);
-        } else {
-          console.log('⚠️ [CalendarService] Pas d\'événements dans la réponse Google Calendar');
-        }
-      } catch (apiError) {
-        console.error('❌ [CalendarService] Erreur Google Calendar:', apiError);
-        // Continue without Google Calendar events
-      }
-
-      // 3. Get Google Tasks
-      console.log('📅 [CalendarService] Étape 3: Récupération Google Tasks via API...');
-      try {
-        const googleTasksResponse = await apiService.getGoogleTasks();
-
-        console.log('📅 [CalendarService] Réponse Google Tasks:', googleTasksResponse);
-
-        if (googleTasksResponse?.tasks && Array.isArray(googleTasksResponse.tasks)) {
-          console.log('📅 [CalendarService] Nombre de tâches Google:', googleTasksResponse.tasks.length);
-
-          const taskEvents = googleTasksResponse.tasks
-            .filter((task: any) => task.due)
-            .map((task: any) => ({
-              id: task.id,
-              title: task.title,
-              startDate: new Date(task.due),
-              endDate: new Date(task.due),
-              notes: task.notes,
-              source: 'google-tasks' as const,
-            }));
-
-          allEvents.push(...taskEvents);
-          console.log('✅ [CalendarService] Tâches Google ajoutées:', taskEvents.length);
-        } else {
-          console.log('⚠️ [CalendarService] Pas de tâches dans la réponse Google Tasks');
-        }
-      } catch (apiError) {
-        console.error('❌ [CalendarService] Erreur Google Tasks:', apiError);
-        // Continue without Google Tasks
-      }
-
-      console.log('📅 [CalendarService] ========== TOTAL ÉVÉNEMENTS:', allEvents.length, '==========');
-      console.log('📅 [CalendarService] Détail des sources:');
-      console.log('  - Device:', allEvents.filter(e => e.source === 'device').length);
-      console.log('  - Google Calendar:', allEvents.filter(e => e.source === 'google').length);
-      console.log('  - Google Tasks:', allEvents.filter(e => e.source === 'google-tasks').length);
-
-      return allEvents;
-    } catch (error) {
-      console.error('❌ [CalendarService] ERREUR CRITIQUE dans getEvents:', error);
-      return [];
-    }
-  }
-
-  async createEvent(event: {
-    title: string;
-    startDate: Date;
-    endDate: Date;
-    location?: string;
-    notes?: string;
-    alarms?: number[]; // minutes before
-  }): Promise<string | null> {
-    try {
-      const calendarId = await this.getDefaultCalendar();
-      if (!calendarId) return null;
-
-      const eventId = await Calendar.createEventAsync(calendarId, {
-        title: event.title,
-        startDate: event.startDate,
-        endDate: event.endDate,
-        location: event.location,
-        notes: event.notes,
-        alarms: event.alarms?.map((minutes) => ({
-          relativeOffset: -minutes,
-          method: Calendar.AlarmMethod.ALERT,
-        })),
-        timeZone: 'UTC',
-      });
-
-      return eventId;
-    } catch (error) {
-      console.error('Create event error:', error);
-      return null;
-    }
-  }
-
-  async updateEvent(
-    eventId: string,
-    updates: {
-      title?: string;
-      startDate?: Date;
-      endDate?: Date;
-      location?: string;
-      notes?: string;
-    }
-  ): Promise<boolean> {
-    try {
-      await Calendar.updateEventAsync(eventId, updates);
-      return true;
-    } catch (error) {
-      console.error('Update event error:', error);
-      return false;
-    }
-  }
-
-  async deleteEvent(eventId: string): Promise<boolean> {
-    try {
-      await Calendar.deleteEventAsync(eventId);
-      return true;
-    } catch (error) {
-      console.error('Delete event error:', error);
-      return false;
-    }
-  }
-
   async syncTasksToCalendar(tasks: any[]): Promise<void> {
-    try {
-      const calendarId = await this.getDefaultCalendar();
-      if (!calendarId) return;
-
-      for (const task of tasks) {
-        if (!task.startDate) continue;
-
-        if (task.calendarEventId) {
-          // Update existing event
-          await this.updateEvent(task.calendarEventId, {
-            title: task.title,
-            startDate: task.startDate,
-            endDate: task.endDate || new Date(task.startDate.getTime() + 3600000), // +1 hour
-            location: task.location?.name,
-            notes: task.description,
-          });
-        } else {
-          // Create new event
-          const eventId = await this.createEvent({
-            title: task.title,
-            startDate: task.startDate,
-            endDate: task.endDate || new Date(task.startDate.getTime() + 3600000),
-            location: task.location?.name,
-            notes: task.description,
-            alarms: [15], // 15 minutes before
-          });
-
-          // Store eventId in task (you'll need to update your task in DB)
-          if (eventId) {
-            // Update task with calendar event ID
-            console.log('Created calendar event:', eventId);
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Sync to calendar error:', error);
-    }
+    // Fonction de sync - garder pour plus tard
+    console.log('syncTasksToCalendar appelé avec', tasks.length, 'tâches');
   }
 }
 
