@@ -97,24 +97,6 @@ export default function SettingsScreen() {
     }
   }
 
-  async function handleTestNotification() {
-    await hapticsService.light();
-    await notificationService.sendImmediateNotification(
-      '✅ Test réussi !',
-      'Les notifications fonctionnent parfaitement 🎉'
-    );
-    Alert.alert('Notification envoyée', 'Tu devrais la recevoir dans quelques secondes !', [{ text: 'OK' }]);
-  }
-
-  async function handleListNotifications() {
-    await hapticsService.light();
-    await notificationService.listScheduledNotifications();
-    Alert.alert(
-      'Notifications planifiées',
-      'Regarde les logs dans la console pour voir toutes les notifications planifiées',
-      [{ text: 'OK' }]
-    );
-  }
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
@@ -220,33 +202,8 @@ export default function SettingsScreen() {
           </Card>
         </View>
 
-        {/* Debug Notifications */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Debug Notifications 🔔</Text>
-          <Card style={[styles.debugCard, { backgroundColor: `${theme.colors.primary}08`, borderColor: `${theme.colors.primary}30`, borderWidth: 1 }]}>
-            <Text style={[styles.debugDescription, { color: theme.colors.textSecondary }]}>
-              Teste si les notifications fonctionnent correctement
-            </Text>
-            <View style={styles.debugButtons}>
-              <Button
-                title="🔔 Tester maintenant"
-                onPress={handleTestNotification}
-                size="small"
-                style={{ flex: 1 }}
-              />
-              <Button
-                title="📋 Voir planifiées"
-                onPress={handleListNotifications}
-                variant="outline"
-                size="small"
-                style={{ flex: 1 }}
-              />
-            </View>
-          </Card>
-        </View>
-
         {/* Logout */}
-        <Card style={[styles.logoutCard, { backgroundColor: `${theme.colors.error}08`, borderColor: `${theme.colors.error}30` }]}>
+        <Card variant="elevated" style={[styles.logoutCard, { backgroundColor: `${theme.colors.error}08` }]}>
           <View style={styles.logoutContent}>
             <View style={[styles.logoutIconCircle, { backgroundColor: `${theme.colors.error}15` }]}>
               <Ionicons name="log-out-outline" size={24} color={theme.colors.error} />
@@ -333,21 +290,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFF',
   },
-  debugCard: {
-    padding: 16,
-  },
-  debugDescription: {
-    fontSize: 14,
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  debugButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
   logoutCard: {
     marginTop: 8,
-    borderWidth: 1,
   },
   logoutContent: {
     flexDirection: 'row',
