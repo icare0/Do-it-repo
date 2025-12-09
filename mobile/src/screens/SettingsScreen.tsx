@@ -2,15 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Switch, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { useThemeStore } from '@/store/themeStore';
 import { useAuthStore } from '@/store/authStore';
-import { useSyncStore } from '@/store/syncStore';
+import { useUserStore } from '@/store/userStore';
 import { getTheme } from '@/theme';
 import { authService } from '@/services/authService';
-import { syncService } from '@/services/syncService';
 import { locationService } from '@/services/locationService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -18,11 +18,10 @@ export default function SettingsScreen() {
   const { colorScheme, toggleTheme } = useThemeStore();
   const theme = getTheme(colorScheme);
   const { user } = useAuthStore();
-  const { lastSync, pendingChanges, isSyncing } = useSyncStore();
+  const { streak, points, level, tasksCompleted, totalTasks } = useUserStore();
 
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [locationEnabled, setLocationEnabled] = useState(true);
-  const [syncing, setSyncing] = useState(false);
 
   // Load settings from AsyncStorage on mount
   useEffect(() => {
@@ -56,19 +55,6 @@ export default function SettingsScreen() {
         },
       },
     ]);
-  }
-
-  async function handleForceSync() {
-    try {
-      setSyncing(true);
-      await syncService.forceSyncNow();
-      Alert.alert('Succès', 'Synchronisation terminée avec succès', [{ text: 'OK' }]);
-    } catch (error) {
-      console.error('Sync error:', error);
-      Alert.alert('Erreur', 'Impossible de synchroniser. Vérifiez votre connexion.', [{ text: 'OK' }]);
-    } finally {
-      setSyncing(false);
-    }
   }
 
   async function handleToggleNotifications(value: boolean) {
@@ -127,6 +113,75 @@ export default function SettingsScreen() {
           </View>
         </Card>
 
+        {/* Stats Section */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Tes Statistiques 🎯</Text>
+
+          {/* Streak Card */}
+          <Card style={styles.statsCard}>
+            <LinearGradient
+              colors={['#FF6B35', '#F7931E']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.streakGradient}
+            >
+              <View style={styles.streakContent}>
+                <Ionicons name="flame" size={32} color="#FFF" />
+                <View style={styles.streakInfo}>
+                  <Text style={styles.streakValue}>{streak}</Text>
+                  <Text style={styles.streakLabel}>jours de série !</Text>
+                </View>
+              </View>
+              <Text style={styles.streakMotivation}>Continue comme ça ! 🚀</Text>
+            </LinearGradient>
+          </Card>
+
+          {/* Stats Grid */}
+          <View style={styles.statsGrid}>
+            {/* Level */}
+            <Card style={styles.statCard}>
+              <View style={[styles.statIconCircle, { backgroundColor: `${theme.colors.primary}15` }]}>
+                <Ionicons name="trophy" size={24} color={theme.colors.primary} />
+              </View>
+              <Text style={[styles.statValue, { color: theme.colors.text }]}>{level}</Text>
+              <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Niveau</Text>
+            </Card>
+
+            {/* Points */}
+            <Card style={styles.statCard}>
+              <View style={[styles.statIconCircle, { backgroundColor: `${theme.colors.secondary}15` }]}>
+                <Ionicons name="star" size={24} color={theme.colors.secondary} />
+              </View>
+              <Text style={[styles.statValue, { color: theme.colors.text }]}>{points}</Text>
+              <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Points</Text>
+            </Card>
+          </View>
+
+          {/* Completion Rate */}
+          <Card style={styles.completionCard}>
+            <View style={styles.completionHeader}>
+              <Text style={[styles.completionTitle, { color: theme.colors.text }]}>Taux de réussite</Text>
+              <Text style={[styles.completionPercent, { color: theme.colors.primary }]}>
+                {totalTasks > 0 ? Math.round((tasksCompleted / totalTasks) * 100) : 0}%
+              </Text>
+            </View>
+            <View style={[styles.progressBar, { backgroundColor: `${theme.colors.primary}15` }]}>
+              <View
+                style={[
+                  styles.progressFill,
+                  {
+                    backgroundColor: theme.colors.primary,
+                    width: `${totalTasks > 0 ? (tasksCompleted / totalTasks) * 100 : 0}%`,
+                  },
+                ]}
+              />
+            </View>
+            <Text style={[styles.completionStats, { color: theme.colors.textSecondary }]}>
+              {tasksCompleted} / {totalTasks} tâches terminées
+            </Text>
+          </Card>
+        </View>
+
         {/* Appearance */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Apparence</Text>
@@ -165,37 +220,6 @@ export default function SettingsScreen() {
                 <Text style={[styles.settingLabel, { color: theme.colors.text }]}>Activer la localisation</Text>
               </View>
               <Switch value={locationEnabled} onValueChange={handleToggleLocation} />
-            </View>
-          </Card>
-        </View>
-
-        {/* Sync Status */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Synchronisation</Text>
-          <Card style={styles.settingCard}>
-            <View style={styles.syncStatusRow}>
-              <View style={[styles.syncIconCircle, {
-                backgroundColor: isSyncing ? `${theme.colors.primary}15` : pendingChanges > 0 ? `${theme.colors.warning}15` : `${theme.colors.success}15`
-              }]}>
-                <Ionicons
-                  name={isSyncing ? 'sync' : pendingChanges > 0 ? 'cloud-upload-outline' : 'cloud-done-outline'}
-                  size={24}
-                  color={isSyncing ? theme.colors.primary : pendingChanges > 0 ? theme.colors.warning : theme.colors.success}
-                />
-              </View>
-              <View style={styles.syncStatusInfo}>
-                <Text style={[styles.syncStatusLabel, { color: theme.colors.text }]}>
-                  {isSyncing ? 'Synchronisation en cours...' : pendingChanges > 0 ? 'Synchronisation automatique' : 'Tout est synchronisé'}
-                </Text>
-                <Text style={[styles.syncStatusText, { color: theme.colors.textSecondary }]}>
-                  {lastSync ? `Dernière synchro: ${lastSync.toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : 'Aucune synchronisation'}
-                </Text>
-                {pendingChanges > 0 && (
-                  <Text style={[styles.syncStatusPending, { color: theme.colors.warning }]}>
-                    {pendingChanges} modification{pendingChanges > 1 ? 's' : ''} en attente
-                  </Text>
-                )}
-              </View>
             </View>
           </Card>
         </View>
@@ -243,36 +267,97 @@ const styles = StyleSheet.create({
   settingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   settingInfo: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   settingLabel: { fontSize: 16 },
-  syncRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
-  syncInfo: { flex: 1 },
-  syncText: { fontSize: 14, marginBottom: 4 },
-  syncStatusRow: {
+  // Stats Section
+  statsCard: { marginBottom: 12, overflow: 'hidden' },
+  streakGradient: {
+    padding: 20,
+    borderRadius: 16,
+  },
+  streakContent: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
+    marginBottom: 8,
   },
-  syncIconCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  syncStatusInfo: {
+  streakInfo: {
     flex: 1,
   },
-  syncStatusLabel: {
+  streakValue: {
+    fontSize: 36,
+    fontWeight: '800',
+    color: '#FFF',
+    lineHeight: 40,
+  },
+  streakLabel: {
     fontSize: 16,
     fontWeight: '600',
+    color: '#FFF',
+    opacity: 0.9,
+  },
+  streakMotivation: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFF',
+    opacity: 0.8,
+    textAlign: 'center',
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
+  statCard: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  statIconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  statValue: {
+    fontSize: 28,
+    fontWeight: '800',
     marginBottom: 4,
   },
-  syncStatusText: {
-    fontSize: 13,
-    marginBottom: 2,
-  },
-  syncStatusPending: {
+  statLabel: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  completionCard: {
+    padding: 20,
+  },
+  completionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  completionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  completionPercent: {
+    fontSize: 24,
+    fontWeight: '800',
+  },
+  progressBar: {
+    height: 8,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  completionStats: {
+    fontSize: 13,
+    textAlign: 'center',
   },
   logoutCard: {
     marginTop: 8,

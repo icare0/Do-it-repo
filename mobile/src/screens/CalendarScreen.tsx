@@ -45,7 +45,6 @@ export default function CalendarScreen() {
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSyncing, setIsSyncing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const isLoadingEventsRef = useRef(false); // Flag pour éviter les appels multiples
 
@@ -102,33 +101,6 @@ export default function CalendarScreen() {
     setRefreshing(true);
     await loadCalendarEvents();
     setRefreshing(false);
-  };
-
-  const handleSync = async () => {
-    try {
-      setIsSyncing(true);
-      await hapticsService.medium();
-
-      console.log('🔄 [CalendarScreen] Synchronisation manuelle demandée...');
-      await loadCalendarEvents();
-
-      await hapticsService.success();
-      Alert.alert(
-        'Calendrier actualisé',
-        'Les événements ont été rechargés.',
-        [{ text: 'OK' }]
-      );
-    } catch (error) {
-      console.error('❌ [CalendarScreen] Erreur de sync:', error);
-      await hapticsService.error();
-      Alert.alert(
-        'Erreur',
-        'Impossible d\'actualiser le calendrier.',
-        [{ text: 'OK' }]
-      );
-    } finally {
-      setIsSyncing(false);
-    }
   };
 
   const handleDayPress = async (day: DateData) => {
@@ -229,20 +201,6 @@ export default function CalendarScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
       <View style={styles.header}>
         <Text style={[styles.title, { color: theme.colors.text }]}>Calendrier</Text>
-        <TouchableOpacity
-          style={[styles.syncButton, { backgroundColor: `${theme.colors.primary}15` }]}
-          onPress={handleSync}
-          disabled={isSyncing}
-        >
-          <Ionicons
-            name={isSyncing ? 'sync' : 'sync-outline'}
-            size={20}
-            color={theme.colors.primary}
-          />
-          <Text style={[styles.syncText, { color: theme.colors.primary }]}>
-            {isSyncing ? 'Sync...' : 'Sync'}
-          </Text>
-        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -448,20 +406,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: -0.5,
   },
-  syncButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 24,
-    gap: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  syncText: { fontSize: 15, fontWeight: '600' },
   content: { padding: 24, paddingTop: 0, paddingBottom: 94 }, // Space for tab bar (50px + 44px padding)
   calendarContainer: {
     borderRadius: 16,

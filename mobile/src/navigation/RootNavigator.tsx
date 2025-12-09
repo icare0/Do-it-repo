@@ -44,8 +44,7 @@ function TabNavigator() {
           backgroundColor: isDark
             ? 'rgba(28, 28, 30, 0.72)' // iOS dark translucent
             : 'rgba(249, 249, 249, 0.92)', // iOS light translucent
-          borderTopWidth: 0.33,
-          borderTopColor: isDark ? 'rgba(84, 84, 88, 0.48)' : 'rgba(0, 0, 0, 0.08)',
+          borderTopWidth: 0,
           height: 50, // iOS standard tab bar height
           paddingTop: 0,
           paddingBottom: 0,

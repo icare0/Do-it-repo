@@ -19,7 +19,7 @@ export default function TaskListScreen() {
   const { colorScheme } = useThemeStore();
   const theme = getTheme(colorScheme);
   const { tasks, toggleTaskCompletion, setSelectedTask, searchQuery, setSearchQuery, filter, setFilter } = useTaskStore();
-  const { points, level } = useUserStore();
+  const { points } = useUserStore();
 
   const [activeTab, setActiveTab] = useState(filter);
 
@@ -51,9 +51,6 @@ export default function TaskListScreen() {
           <Text style={[styles.greeting, { color: theme.colors.textSecondary }]}>Bon retour,</Text>
           <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Mon Tableau de Bord</Text>
         </View>
-        <TouchableOpacity style={[styles.profileButton, { backgroundColor: theme.colors.surface }]}>
-          <Text style={[styles.levelText, { color: theme.colors.primary }]}>Lvl {level}</Text>
-        </TouchableOpacity>
       </View>
 
       {/* Search Bar */}
@@ -172,14 +169,6 @@ const styles = StyleSheet.create({
   },
   greeting: { fontSize: 14, fontWeight: '600', marginBottom: 4, opacity: 0.7 },
   headerTitle: { fontSize: 28, fontWeight: '800', letterSpacing: -0.5 },
-  profileButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
-  },
-  levelText: { fontSize: 12, fontWeight: '700' },
 
   searchWrapper: {
     flexDirection: 'row',

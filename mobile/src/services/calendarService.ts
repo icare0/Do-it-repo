@@ -42,6 +42,24 @@ class CalendarService {
   }
 
   /**
+   * Déduplique les événements (même titre + même date de début)
+   */
+  private deduplicateEvents(events: CalendarEvent[]): CalendarEvent[] {
+    const seen = new Map<string, CalendarEvent>();
+
+    events.forEach((event) => {
+      // Créer une clé unique basée sur titre + date de début
+      const key = `${event.title.toLowerCase().trim()}_${event.startDate.getTime()}`;
+
+      if (!seen.has(key)) {
+        seen.set(key, event);
+      }
+    });
+
+    return Array.from(seen.values());
+  }
+
+  /**
    * Récupère tous les calendriers du device
    */
   async getAllCalendars() {
@@ -154,12 +172,18 @@ class CalendarService {
         source: 'device' as const,
       }));
 
+      // Déduplication des événements (plusieurs comptes peuvent avoir les mêmes événements)
+      console.log('📅 [CalendarService] ');
+      console.log('📅 [CalendarService] 🔄 Déduplication des événements...');
+      const uniqueEvents = this.deduplicateEvents(mappedEvents);
+      console.log('📅 [CalendarService] ✅ Après déduplication:', uniqueEvents.length, 'événement(s) unique(s)');
+
       console.log('📅 [CalendarService] ');
       console.log('📅 [CalendarService] ========================================');
-      console.log('📅 [CalendarService] ✅ FIN: Retour de', mappedEvents.length, 'événement(s)');
+      console.log('📅 [CalendarService] ✅ FIN: Retour de', uniqueEvents.length, 'événement(s)');
       console.log('📅 [CalendarService] ========================================');
 
-      return mappedEvents;
+      return uniqueEvents;
     } catch (error) {
       console.error('❌ [CalendarService] ========================================');
       console.error('❌ [CalendarService] ERREUR CRITIQUE:');
