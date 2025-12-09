@@ -696,4 +696,22 @@ const styles = StyleSheet.create({
     ...typography.subheadline,
     textAlign: 'center',
   },
+  fabContainer: {
+    position: 'absolute',
+    bottom: 70, // Above tab bar (50px + 20px margin)
+    right: spacing.xl,
+    zIndex: 100,
+  },
+  fab: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    overflow: 'hidden',
+  },
+  fabGradient: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });
