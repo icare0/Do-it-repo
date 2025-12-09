@@ -115,7 +115,7 @@ function TabNavigator() {
           tabBarLabel: 'Réglages',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
-              name={focused ? "person-circle" : "person-circle-outline"}
+              name={focused ? "settings" : "settings-outline"}
               size={28}
               color={color}
             />

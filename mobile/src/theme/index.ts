@@ -1,5 +1,5 @@
 import { colors, ColorScheme, ThemeColors } from './colors';
-import { spacing, borderRadius, shadows } from './spacing';
+import { spacing, borderRadius, shadows, layout } from './spacing';
 import { typography } from './typography';
 
 export interface Theme {

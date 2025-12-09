@@ -14,14 +14,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { format, startOfMonth, endOfMonth, isSameDay } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { SkeletonTaskCard, SkeletonList } from '@/components/ui/Skeleton';
+import { AnimatedFAB } from '@/components/ui/AnimatedFAB';
 import { useThemeStore } from '@/store/themeStore';
 import { useTaskStore } from '@/store/taskStore';
-import { getTheme } from '@/theme';
+import { getTheme, shadows, layout, spacing } from '@/theme';
 import { calendarService } from '@/services/calendarService';
 import { hapticsService } from '@/services/hapticsService';
 import { CalendarEvent } from '@/types';
@@ -388,6 +390,16 @@ export default function CalendarScreen() {
           </Card>
         </View>
       </ScrollView>
+
+      {/* Floating Action Button */}
+      <View style={styles.fabContainer}>
+        <AnimatedFAB
+          onPress={() => navigation.navigate('QuickAdd' as never)}
+          gradientColors={theme.colors.gradient.primary}
+          iconColor={theme.colors.textOnColor}
+          pulse={selectedTasks.length === 0 && selectedEvents.length === 0}
+        />
+      </View>
     </SafeAreaView>
   );
 }
@@ -406,7 +418,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: -0.5,
   },
-  content: { padding: 24, paddingTop: 0, paddingBottom: 94 }, // Space for tab bar (50px + 44px padding)
+  content: { padding: spacing.xl, paddingTop: 0, paddingBottom: layout.scrollContentPaddingBottom + spacing.md },
   calendarContainer: {
     borderRadius: 16,
     overflow: 'hidden',
@@ -528,5 +540,11 @@ const styles = StyleSheet.create({
   summaryLabel: {
     fontSize: 12,
     fontWeight: '500',
+  },
+  fabContainer: {
+    position: 'absolute',
+    bottom: layout.fabBottomOffset,
+    right: spacing.xl,
+    zIndex: 100,
   },
 });
