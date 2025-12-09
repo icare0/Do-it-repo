@@ -1,211 +1,348 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
-import messaging from '@react-native-firebase/messaging';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const FCM_TOKEN_KEY = 'fcm_token';
+const NOTIFICATIONS_ENABLED_KEY = '@doit_notifications_enabled';
 
-// Configure notification handler
+/**
+ * Service de notifications LOCAL simplifié
+ * Plus de Firebase, plus de complexité inutile
+ * Juste des notifications locales qui FONCTIONNENT
+ */
+
+// Configuration du handler de notifications
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
+    priority: Notifications.AndroidNotificationPriority.HIGH,
   }),
 });
 
+interface TaskNotification {
+  taskId: string;
+  title: string;
+  body: string;
+  scheduledTime: Date;
+}
+
 class NotificationService {
-  async initialize() {
+  private isInitialized = false;
+  private hasPermissions = false;
+
+  /**
+   * Initialise le service de notifications
+   * À appeler au démarrage de l'app
+   */
+  async initialize(): Promise<boolean> {
     try {
-      const hasPermission = await this.requestPermissions();
-      if (!hasPermission) {
-        console.warn('Notification permissions not granted');
-        return null;
+      console.log('🔔 [NotificationService] ==========================================');
+      console.log('🔔 [NotificationService] INITIALISATION DU SERVICE');
+      console.log('🔔 [NotificationService] ==========================================');
+
+      // Vérifier si on est sur un vrai device
+      if (!Device.isDevice) {
+        console.log('🔔 [NotificationService] ⚠️ Simulateur détecté - les notifications ne fonctionneront pas');
+        this.isInitialized = true;
+        return false;
       }
 
-      // Get FCM token
-      const token = await this.getFCMToken();
+      // Demander les permissions
+      const hasPerms = await this.requestPermissions();
+      this.hasPermissions = hasPerms;
 
-      // Setup notification listeners
+      if (!hasPerms) {
+        console.log('🔔 [NotificationService] ❌ Permissions refusées');
+        this.isInitialized = true;
+        return false;
+      }
+
+      // Setup les listeners
       this.setupListeners();
 
-      return token;
-    } catch (error) {
-      console.error('Notification initialization error:', error);
-      return null;
-    }
-  }
-
-  async requestPermissions(): Promise<boolean> {
-    try {
-      if (!Device.isDevice) {
-        console.warn('Notifications only work on physical devices');
-        return false;
-      }
-
-      const { status: existingStatus } = await Notifications.getPermissionsAsync();
-      let finalStatus = existingStatus;
-
-      if (existingStatus !== 'granted') {
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
-      }
-
-      if (finalStatus !== 'granted') {
-        return false;
-      }
-
-      if (Platform.OS === 'android') {
-        await Notifications.setNotificationChannelAsync('default', {
-          name: 'default',
-          importance: Notifications.AndroidImportance.MAX,
-          vibrationPattern: [0, 250, 250, 250],
-          lightColor: '#3B82F6',
-        });
-      }
+      this.isInitialized = true;
+      console.log('🔔 [NotificationService] ✅ Service initialisé avec succès');
+      console.log('🔔 [NotificationService] ==========================================');
 
       return true;
     } catch (error) {
-      console.error('Permission request error:', error);
+      console.error('🔔 [NotificationService] ❌ Erreur initialisation:', error);
+      this.isInitialized = true;
       return false;
     }
   }
 
-  async getFCMToken(): Promise<string | null> {
+  /**
+   * Demande les permissions de notifications
+   */
+  async requestPermissions(): Promise<boolean> {
     try {
-      // Check if we have a cached token
-      const cachedToken = await AsyncStorage.getItem(FCM_TOKEN_KEY);
-      if (cachedToken) return cachedToken;
+      console.log('🔔 [NotificationService] 📱 Demande de permissions...');
 
-      // Request authorization (iOS)
-      if (Platform.OS === 'ios') {
-        const authStatus = await messaging().requestPermission();
-        const enabled =
-          authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-          authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      console.log('🔔 [NotificationService] Status actuel:', existingStatus);
 
-        if (!enabled) return null;
+      let finalStatus = existingStatus;
+
+      if (existingStatus !== 'granted') {
+        console.log('🔔 [NotificationService] 🙏 Demande de permissions à l\'utilisateur...');
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+        console.log('🔔 [NotificationService] Nouveau status:', finalStatus);
       }
 
-      // Get FCM token
-      const token = await messaging().getToken();
-      await AsyncStorage.setItem(FCM_TOKEN_KEY, token);
+      if (finalStatus !== 'granted') {
+        console.log('🔔 [NotificationService] ❌ Permissions refusées');
+        return false;
+      }
 
-      return token;
+      // Configuration Android
+      if (Platform.OS === 'android') {
+        console.log('🔔 [NotificationService] 🤖 Configuration canal Android...');
+        await Notifications.setNotificationChannelAsync('task-reminders', {
+          name: 'Rappels de tâches',
+          importance: Notifications.AndroidImportance.HIGH,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#3B82F6',
+          sound: 'default',
+          enableVibrate: true,
+        });
+        console.log('🔔 [NotificationService] ✅ Canal Android configuré');
+      }
+
+      console.log('🔔 [NotificationService] ✅ Permissions accordées');
+      await AsyncStorage.setItem(NOTIFICATIONS_ENABLED_KEY, 'true');
+
+      return true;
     } catch (error) {
-      console.error('Get FCM token error:', error);
+      console.error('🔔 [NotificationService] ❌ Erreur permissions:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Setup des listeners pour les notifications
+   */
+  private setupListeners() {
+    console.log('🔔 [NotificationService] 👂 Setup des listeners...');
+
+    // Quand une notification est reçue (app en foreground)
+    Notifications.addNotificationReceivedListener((notification) => {
+      console.log('🔔 [NotificationService] 📬 Notification reçue:', notification.request.content.title);
+    });
+
+    // Quand l'utilisateur tape sur une notification
+    Notifications.addNotificationResponseReceivedListener((response) => {
+      console.log('🔔 [NotificationService] 👆 Notification tapée:', response.notification.request.content.title);
+      const taskId = response.notification.request.content.data.taskId;
+      if (taskId) {
+        console.log('🔔 [NotificationService] 🎯 Task ID:', taskId);
+        // TODO: Navigation vers la tâche
+      }
+    });
+
+    console.log('🔔 [NotificationService] ✅ Listeners configurés');
+  }
+
+  /**
+   * Planifie une notification pour une tâche
+   */
+  async scheduleTaskNotification(task: {
+    id: string;
+    title: string;
+    startDate: Date;
+    minutesBefore?: number;
+  }): Promise<string | null> {
+    try {
+      if (!this.hasPermissions) {
+        console.log('🔔 [NotificationService] ⚠️ Pas de permissions - notification ignorée');
+        return null;
+      }
+
+      const now = new Date();
+      const taskDate = new Date(task.startDate);
+      const minutesBefore = task.minutesBefore || 15;
+
+      // Calculer le moment de la notification
+      const notificationTime = new Date(taskDate.getTime() - minutesBefore * 60000);
+
+      // Si c'est dans le passé, ne pas planifier
+      if (notificationTime <= now) {
+        console.log('🔔 [NotificationService] ⏰ Heure passée - notification ignorée');
+        return null;
+      }
+
+      console.log('🔔 [NotificationService] ');
+      console.log('🔔 [NotificationService] 📅 Planification notification');
+      console.log('🔔 [NotificationService] Tâche:', task.title);
+      console.log('🔔 [NotificationService] Date tâche:', taskDate.toLocaleString('fr-FR'));
+      console.log('🔔 [NotificationService] Notification prévue:', notificationTime.toLocaleString('fr-FR'));
+      console.log('🔔 [NotificationService] Dans:', Math.round((notificationTime.getTime() - now.getTime()) / 60000), 'minutes');
+
+      // Planifier la notification
+      const notificationId = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: '⏰ Rappel de tâche',
+          body: task.title,
+          data: {
+            taskId: task.id,
+            type: 'task_reminder'
+          },
+          sound: true,
+          priority: Notifications.AndroidNotificationPriority.HIGH,
+        },
+        trigger: {
+          date: notificationTime,
+          channelId: Platform.OS === 'android' ? 'task-reminders' : undefined,
+        },
+      });
+
+      console.log('🔔 [NotificationService] ✅ Notification planifiée - ID:', notificationId);
+
+      // Sauvegarder la correspondance task -> notification
+      await this.saveNotificationMapping(task.id, notificationId);
+
+      return notificationId;
+    } catch (error) {
+      console.error('🔔 [NotificationService] ❌ Erreur planification:', error);
       return null;
     }
   }
 
-  private setupListeners() {
-    // Foreground notification handler
-    Notifications.addNotificationReceivedListener((notification) => {
-      console.log('Notification received:', notification);
-    });
-
-    // Notification response handler (when user taps notification)
-    Notifications.addNotificationResponseReceivedListener((response) => {
-      console.log('Notification response:', response);
-      // Handle navigation based on notification data
-    });
-
-    // FCM foreground message handler
-    messaging().onMessage(async (remoteMessage) => {
-      console.log('FCM message received:', remoteMessage);
-
-      // Show local notification
-      if (remoteMessage.notification) {
-        await this.scheduleLocalNotification({
-          title: remoteMessage.notification.title || '',
-          body: remoteMessage.notification.body || '',
-          data: remoteMessage.data,
-        });
-      }
-    });
-
-    // Token refresh handler
-    messaging().onTokenRefresh(async (token) => {
-      await AsyncStorage.setItem(FCM_TOKEN_KEY, token);
-      // Send updated token to backend
-    });
-  }
-
-  async scheduleLocalNotification(options: {
-    title: string;
-    body: string;
-    data?: any;
-    trigger?: Date | { seconds: number };
-  }) {
+  /**
+   * Annule la notification d'une tâche
+   */
+  async cancelTaskNotification(taskId: string): Promise<void> {
     try {
-      let trigger = null;
-      if (options.trigger) {
-        if (options.trigger instanceof Date) {
-          trigger = options.trigger;
-        } else {
-          trigger = { seconds: options.trigger.seconds };
-        }
+      const notificationId = await this.getNotificationId(taskId);
+      if (notificationId) {
+        console.log('🔔 [NotificationService] 🚫 Annulation notification pour tâche:', taskId);
+        await Notifications.cancelScheduledNotificationAsync(notificationId);
+        await this.removeNotificationMapping(taskId);
+        console.log('🔔 [NotificationService] ✅ Notification annulée');
       }
-
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: options.title,
-          body: options.body,
-          data: options.data || {},
-          sound: true,
-        },
-        trigger,
-      });
     } catch (error) {
-      console.error('Schedule notification error:', error);
+      console.error('🔔 [NotificationService] ❌ Erreur annulation:', error);
     }
   }
 
-  async scheduleTaskReminder(task: {
+  /**
+   * Met à jour la notification d'une tâche (annule + replanifie)
+   */
+  async updateTaskNotification(task: {
     id: string;
     title: string;
-    date: Date;
+    startDate: Date;
     minutesBefore?: number;
-  }) {
-    const reminderTime = new Date(task.date);
-    reminderTime.setMinutes(reminderTime.getMinutes() - (task.minutesBefore || 15));
-
-    await this.scheduleLocalNotification({
-      title: 'Rappel de tâche',
-      body: task.title,
-      data: { taskId: task.id, type: 'task_reminder' },
-      trigger: reminderTime,
-    });
+  }): Promise<void> {
+    console.log('🔔 [NotificationService] 🔄 Mise à jour notification pour:', task.title);
+    await this.cancelTaskNotification(task.id);
+    await this.scheduleTaskNotification(task);
   }
 
-  async scheduleLocationReminder(task: {
-    id: string;
-    title: string;
-    locationName: string;
-  }) {
-    await this.scheduleLocalNotification({
-      title: `Tâche à proximité`,
-      body: `${task.title} - ${task.locationName}`,
-      data: { taskId: task.id, type: 'location_reminder' },
-    });
+  /**
+   * Envoie une notification immédiate (pour tests)
+   */
+  async sendImmediateNotification(title: string, body: string): Promise<void> {
+    try {
+      if (!this.hasPermissions) {
+        console.log('🔔 [NotificationService] ⚠️ Pas de permissions');
+        return;
+      }
+
+      console.log('🔔 [NotificationService] 📤 Envoi notification immédiate');
+
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title,
+          body,
+          data: { type: 'immediate' },
+          sound: true,
+          priority: Notifications.AndroidNotificationPriority.HIGH,
+        },
+        trigger: null, // Immédiat
+      });
+
+      console.log('🔔 [NotificationService] ✅ Notification envoyée');
+    } catch (error) {
+      console.error('🔔 [NotificationService] ❌ Erreur envoi:', error);
+    }
   }
 
-  async cancelNotification(identifier: string) {
-    await Notifications.cancelScheduledNotificationAsync(identifier);
+  /**
+   * Liste toutes les notifications planifiées (pour debug)
+   */
+  async listScheduledNotifications(): Promise<void> {
+    try {
+      const notifications = await Notifications.getAllScheduledNotificationsAsync();
+      console.log('🔔 [NotificationService] ');
+      console.log('🔔 [NotificationService] 📋 NOTIFICATIONS PLANIFIÉES:', notifications.length);
+      notifications.forEach((notif, index) => {
+        console.log(`🔔 [NotificationService] ${index + 1}. ${notif.content.title}`);
+        console.log(`🔔 [NotificationService]    ID: ${notif.identifier}`);
+        if (notif.trigger && 'date' in notif.trigger) {
+          console.log(`🔔 [NotificationService]    Prévue: ${new Date(notif.trigger.date).toLocaleString('fr-FR')}`);
+        }
+      });
+      console.log('🔔 [NotificationService] ');
+    } catch (error) {
+      console.error('🔔 [NotificationService] ❌ Erreur liste:', error);
+    }
   }
 
-  async cancelAllNotifications() {
-    await Notifications.cancelAllScheduledNotificationsAsync();
+  /**
+   * Annule toutes les notifications
+   */
+  async cancelAllNotifications(): Promise<void> {
+    try {
+      console.log('🔔 [NotificationService] 🧹 Annulation de toutes les notifications...');
+      await Notifications.cancelAllScheduledNotificationsAsync();
+      await AsyncStorage.removeItem('@doit_notification_mappings');
+      console.log('🔔 [NotificationService] ✅ Toutes les notifications annulées');
+    } catch (error) {
+      console.error('🔔 [NotificationService] ❌ Erreur annulation totale:', error);
+    }
   }
 
-  async getBadgeCount(): Promise<number> {
-    return await Notifications.getBadgeCountAsync();
+  // === HELPERS PRIVÉS ===
+
+  private async saveNotificationMapping(taskId: string, notificationId: string): Promise<void> {
+    try {
+      const mappingsJson = await AsyncStorage.getItem('@doit_notification_mappings');
+      const mappings = mappingsJson ? JSON.parse(mappingsJson) : {};
+      mappings[taskId] = notificationId;
+      await AsyncStorage.setItem('@doit_notification_mappings', JSON.stringify(mappings));
+    } catch (error) {
+      console.error('🔔 [NotificationService] Erreur save mapping:', error);
+    }
   }
 
-  async setBadgeCount(count: number) {
-    await Notifications.setBadgeCountAsync(count);
+  private async getNotificationId(taskId: string): Promise<string | null> {
+    try {
+      const mappingsJson = await AsyncStorage.getItem('@doit_notification_mappings');
+      if (!mappingsJson) return null;
+      const mappings = JSON.parse(mappingsJson);
+      return mappings[taskId] || null;
+    } catch (error) {
+      console.error('🔔 [NotificationService] Erreur get mapping:', error);
+      return null;
+    }
+  }
+
+  private async removeNotificationMapping(taskId: string): Promise<void> {
+    try {
+      const mappingsJson = await AsyncStorage.getItem('@doit_notification_mappings');
+      if (!mappingsJson) return;
+      const mappings = JSON.parse(mappingsJson);
+      delete mappings[taskId];
+      await AsyncStorage.setItem('@doit_notification_mappings', JSON.stringify(mappings));
+    } catch (error) {
+      console.error('🔔 [NotificationService] Erreur remove mapping:', error);
+    }
   }
 }
 
 export const notificationService = new NotificationService();
+

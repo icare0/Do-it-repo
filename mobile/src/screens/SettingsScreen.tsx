@@ -1,28 +1,31 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Switch, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Switch, Alert, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation } from '@react-navigation/native';
 
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { useThemeStore } from '@/store/themeStore';
 import { useAuthStore } from '@/store/authStore';
-import { useSyncStore } from '@/store/syncStore';
+import { useUserStore } from '@/store/userStore';
 import { getTheme } from '@/theme';
 import { authService } from '@/services/authService';
-import { syncService } from '@/services/syncService';
 import { locationService } from '@/services/locationService';
+import { hapticsService } from '@/services/hapticsService';
+import { notificationService } from '@/services/notificationService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function SettingsScreen() {
+  const navigation = useNavigation();
   const { colorScheme, toggleTheme } = useThemeStore();
   const theme = getTheme(colorScheme);
   const { user } = useAuthStore();
-  const { lastSync, pendingChanges, isSyncing } = useSyncStore();
+  const { streak, points, level, tasksCompleted, totalTasks } = useUserStore();
 
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [locationEnabled, setLocationEnabled] = useState(true);
-  const [syncing, setSyncing] = useState(false);
 
   // Load settings from AsyncStorage on mount
   useEffect(() => {
@@ -56,19 +59,6 @@ export default function SettingsScreen() {
         },
       },
     ]);
-  }
-
-  async function handleForceSync() {
-    try {
-      setSyncing(true);
-      await syncService.forceSyncNow();
-      Alert.alert('Succès', 'Synchronisation terminée avec succès', [{ text: 'OK' }]);
-    } catch (error) {
-      console.error('Sync error:', error);
-      Alert.alert('Erreur', 'Impossible de synchroniser. Vérifiez votre connexion.', [{ text: 'OK' }]);
-    } finally {
-      setSyncing(false);
-    }
   }
 
   async function handleToggleNotifications(value: boolean) {
@@ -107,6 +97,25 @@ export default function SettingsScreen() {
     }
   }
 
+  async function handleTestNotification() {
+    await hapticsService.light();
+    await notificationService.sendImmediateNotification(
+      '✅ Test réussi !',
+      'Les notifications fonctionnent parfaitement 🎉'
+    );
+    Alert.alert('Notification envoyée', 'Tu devrais la recevoir dans quelques secondes !', [{ text: 'OK' }]);
+  }
+
+  async function handleListNotifications() {
+    await hapticsService.light();
+    await notificationService.listScheduledNotifications();
+    Alert.alert(
+      'Notifications planifiées',
+      'Regarde les logs dans la console pour voir toutes les notifications planifiées',
+      [{ text: 'OK' }]
+    );
+  }
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
       <View style={styles.header}>
@@ -126,6 +135,48 @@ export default function SettingsScreen() {
             </View>
           </View>
         </Card>
+
+        {/* Stats Section - Compact */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Progression</Text>
+          <TouchableOpacity
+            onPress={() => {
+              hapticsService.light();
+              navigation.navigate('Stats' as never);
+            }}
+            activeOpacity={0.7}
+          >
+            <Card style={styles.statsCard}>
+              <LinearGradient
+                colors={['#FF6B35', '#F7931E']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.statsGradient}
+              >
+                <View style={styles.statsRow}>
+                  <View style={styles.statsLeft}>
+                    <Ionicons name="flame" size={32} color="#FFF" />
+                    <View style={styles.statsInfo}>
+                      <Text style={styles.statsValue}>{streak} jours</Text>
+                      <Text style={styles.statsLabel}>Série active 🔥</Text>
+                    </View>
+                  </View>
+                  <View style={styles.statsRight}>
+                    <View style={styles.statMini}>
+                      <Ionicons name="trophy" size={16} color="#FFF" />
+                      <Text style={styles.statMiniText}>Lvl {level}</Text>
+                    </View>
+                    <View style={styles.statMini}>
+                      <Ionicons name="star" size={16} color="#FFF" />
+                      <Text style={styles.statMiniText}>{points} pts</Text>
+                    </View>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color="#FFF" style={{ opacity: 0.7 }} />
+                </View>
+              </LinearGradient>
+            </Card>
+          </TouchableOpacity>
+        </View>
 
         {/* Appearance */}
         <View style={styles.section}>
@@ -169,33 +220,27 @@ export default function SettingsScreen() {
           </Card>
         </View>
 
-        {/* Sync Status */}
+        {/* Debug Notifications */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Synchronisation</Text>
-          <Card style={styles.settingCard}>
-            <View style={styles.syncStatusRow}>
-              <View style={[styles.syncIconCircle, {
-                backgroundColor: isSyncing ? `${theme.colors.primary}15` : pendingChanges > 0 ? `${theme.colors.warning}15` : `${theme.colors.success}15`
-              }]}>
-                <Ionicons
-                  name={isSyncing ? 'sync' : pendingChanges > 0 ? 'cloud-upload-outline' : 'cloud-done-outline'}
-                  size={24}
-                  color={isSyncing ? theme.colors.primary : pendingChanges > 0 ? theme.colors.warning : theme.colors.success}
-                />
-              </View>
-              <View style={styles.syncStatusInfo}>
-                <Text style={[styles.syncStatusLabel, { color: theme.colors.text }]}>
-                  {isSyncing ? 'Synchronisation en cours...' : pendingChanges > 0 ? 'Synchronisation automatique' : 'Tout est synchronisé'}
-                </Text>
-                <Text style={[styles.syncStatusText, { color: theme.colors.textSecondary }]}>
-                  {lastSync ? `Dernière synchro: ${lastSync.toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : 'Aucune synchronisation'}
-                </Text>
-                {pendingChanges > 0 && (
-                  <Text style={[styles.syncStatusPending, { color: theme.colors.warning }]}>
-                    {pendingChanges} modification{pendingChanges > 1 ? 's' : ''} en attente
-                  </Text>
-                )}
-              </View>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Debug Notifications 🔔</Text>
+          <Card style={[styles.debugCard, { backgroundColor: `${theme.colors.primary}08`, borderColor: `${theme.colors.primary}30`, borderWidth: 1 }]}>
+            <Text style={[styles.debugDescription, { color: theme.colors.textSecondary }]}>
+              Teste si les notifications fonctionnent correctement
+            </Text>
+            <View style={styles.debugButtons}>
+              <Button
+                title="🔔 Tester maintenant"
+                onPress={handleTestNotification}
+                size="small"
+                style={{ flex: 1 }}
+              />
+              <Button
+                title="📋 Voir planifiées"
+                onPress={handleListNotifications}
+                variant="outline"
+                size="small"
+                style={{ flex: 1 }}
+              />
             </View>
           </Card>
         </View>
@@ -243,36 +288,62 @@ const styles = StyleSheet.create({
   settingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   settingInfo: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   settingLabel: { fontSize: 16 },
-  syncRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
-  syncInfo: { flex: 1 },
-  syncText: { fontSize: 14, marginBottom: 4 },
-  syncStatusRow: {
+  // Stats Section - Compact
+  statsCard: { overflow: 'hidden' },
+  statsGradient: {
+    padding: 16,
+    borderRadius: 16,
+  },
+  statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 12,
   },
-  syncIconCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+  statsLeft: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-  },
-  syncStatusInfo: {
+    gap: 12,
     flex: 1,
   },
-  syncStatusLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
+  statsInfo: {
+    flex: 1,
   },
-  syncStatusText: {
-    fontSize: 13,
+  statsValue: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FFF',
     marginBottom: 2,
   },
-  syncStatusPending: {
-    fontSize: 12,
+  statsLabel: {
+    fontSize: 13,
     fontWeight: '600',
+    color: '#FFF',
+    opacity: 0.9,
+  },
+  statsRight: {
+    gap: 6,
+  },
+  statMini: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  statMiniText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFF',
+  },
+  debugCard: {
+    padding: 16,
+  },
+  debugDescription: {
+    fontSize: 14,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  debugButtons: {
+    flexDirection: 'row',
+    gap: 12,
   },
   logoutCard: {
     marginTop: 8,

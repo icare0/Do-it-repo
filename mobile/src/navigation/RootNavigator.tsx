@@ -6,11 +6,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { View, ActivityIndicator } from 'react-native';
 
 import { useAuthStore } from '@/store/authStore';
+import { useOnboardingStore } from '@/store/onboardingStore';
 import { authService } from '@/services/authService';
 import { useThemeStore } from '@/store/themeStore';
 import { getTheme } from '@/theme';
 
 // Screens
+import OnboardingScreen from '@/screens/OnboardingScreen';
 import LoginScreen from '@/screens/LoginScreen';
 import RegisterScreen from '@/screens/RegisterScreen';
 import TodayScreen from '@/screens/TodayScreen';
@@ -44,8 +46,7 @@ function TabNavigator() {
           backgroundColor: isDark
             ? 'rgba(28, 28, 30, 0.72)' // iOS dark translucent
             : 'rgba(249, 249, 249, 0.92)', // iOS light translucent
-          borderTopWidth: 0.33,
-          borderTopColor: isDark ? 'rgba(84, 84, 88, 0.48)' : 'rgba(0, 0, 0, 0.08)',
+          borderTopWidth: 0,
           height: 50, // iOS standard tab bar height
           paddingTop: 0,
           paddingBottom: 0,
@@ -114,7 +115,7 @@ function TabNavigator() {
           tabBarLabel: 'Réglages',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
-              name={focused ? "person-circle" : "person-circle-outline"}
+              name={focused ? "settings" : "settings-outline"}
               size={28}
               color={color}
             />
@@ -126,11 +127,16 @@ function TabNavigator() {
 }
 
 export default function RootNavigator() {
-  const { isAuthenticated, isLoading } = useAuthStore();
+  const { isAuthenticated, isLoading: authLoading } = useAuthStore();
+  const { hasCompletedOnboarding, isLoading: onboardingLoading, checkOnboardingStatus } = useOnboardingStore();
   const { colorScheme } = useThemeStore();
   const theme = getTheme(colorScheme);
 
-  if (isLoading) {
+  useEffect(() => {
+    checkOnboardingStatus();
+  }, []);
+
+  if (authLoading || onboardingLoading) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.background }}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
@@ -146,7 +152,9 @@ export default function RootNavigator() {
           contentStyle: { backgroundColor: theme.colors.background },
         }}
       >
-        {!isAuthenticated ? (
+        {!hasCompletedOnboarding ? (
+          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+        ) : !isAuthenticated ? (
           <>
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="Register" component={RegisterScreen} />

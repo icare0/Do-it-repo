@@ -7,10 +7,11 @@ import Animated, { FadeInDown, Layout } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { PremiumTaskItem } from '@/components/PremiumTaskItem';
+import { AnimatedFAB } from '@/components/ui/AnimatedFAB';
 import { useThemeStore } from '@/store/themeStore';
 import { useTaskStore } from '@/store/taskStore';
 import { useUserStore } from '@/store/userStore';
-import { getTheme } from '@/theme';
+import { getTheme, shadows, layout, spacing } from '@/theme';
 
 const { width } = Dimensions.get('window');
 
@@ -19,9 +20,44 @@ export default function TaskListScreen() {
   const { colorScheme } = useThemeStore();
   const theme = getTheme(colorScheme);
   const { tasks, toggleTaskCompletion, setSelectedTask, searchQuery, setSearchQuery, filter, setFilter } = useTaskStore();
-  const { points, level } = useUserStore();
+  const { points } = useUserStore();
 
   const [activeTab, setActiveTab] = useState(filter);
+
+  // Contextual empty state message
+  const getEmptyMessage = () => {
+    const hour = new Date().getHours();
+    const dayOfWeek = new Date().getDay();
+
+    if (searchQuery) {
+      return { icon: 'search-outline', title: 'Aucun résultat', subtitle: 'Essayez un autre terme de recherche' };
+    }
+
+    if (filter === 'completed') {
+      return { icon: 'trophy-outline', title: 'Pas encore de victoire', subtitle: 'Termine une tâche pour débloquer cet onglet !' };
+    }
+
+    if (filter === 'today') {
+      if (hour < 12) {
+        return { icon: 'sunny-outline', title: 'Journée dégagée !', subtitle: 'Profite de ce moment pour planifier 🌅' };
+      } else if (hour < 18) {
+        return { icon: 'partly-sunny-outline', title: 'Après-midi tranquille', subtitle: 'Parfait pour se reposer un peu ☕' };
+      } else {
+        return { icon: 'moon-outline', title: 'Soirée libre !', subtitle: 'Time to chill 😎' };
+      }
+    }
+
+    if (filter === 'upcoming') {
+      return { icon: 'calendar-outline', title: 'Rien à l\'horizon', subtitle: 'Planifie tes prochaines tâches !' };
+    }
+
+    // Default for 'all'
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      return { icon: 'beer-outline', title: 'Weekend mode activé !', subtitle: 'Profite de ton temps libre 🌴' };
+    }
+
+    return { icon: 'leaf-outline', title: 'Prêt à conquérir le monde ?', subtitle: 'Ajoute ta première tâche ! 🚀' };
+  };
 
   // Sync local tab state with store filter
   useEffect(() => {
@@ -51,9 +87,6 @@ export default function TaskListScreen() {
           <Text style={[styles.greeting, { color: theme.colors.textSecondary }]}>Bon retour,</Text>
           <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Mon Tableau de Bord</Text>
         </View>
-        <TouchableOpacity style={[styles.profileButton, { backgroundColor: theme.colors.surface }]}>
-          <Text style={[styles.levelText, { color: theme.colors.primary }]}>Lvl {level}</Text>
-        </TouchableOpacity>
       </View>
 
       {/* Search Bar */}
@@ -148,13 +181,32 @@ export default function TaskListScreen() {
             />
           </Animated.View>
         )}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Ionicons name="leaf-outline" size={48} color={theme.colors.textTertiary} />
-            <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>Aucune tâche trouvée</Text>
-          </View>
-        }
+        ListEmptyComponent={() => {
+          const emptyMsg = getEmptyMessage();
+          return (
+            <Animated.View
+              entering={FadeInDown.delay(300).springify()}
+              style={styles.emptyState}
+            >
+              <View style={[styles.emptyIconCircle, { backgroundColor: `${theme.colors.primary}15` }]}>
+                <Ionicons name={emptyMsg.icon as any} size={40} color={theme.colors.primary} />
+              </View>
+              <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>{emptyMsg.title}</Text>
+              <Text style={[styles.emptySubtitle, { color: theme.colors.textSecondary }]}>{emptyMsg.subtitle}</Text>
+            </Animated.View>
+          );
+        }}
       />
+
+      {/* Floating Action Button */}
+      <View style={styles.fabContainer}>
+        <AnimatedFAB
+          onPress={() => navigation.navigate('QuickAdd' as never)}
+          gradientColors={theme.colors.gradient.primary}
+          iconColor={theme.colors.textOnColor}
+          pulse={filteredTasks.length === 0 && !searchQuery}
+        />
+      </View>
     </SafeAreaView>
   );
 }
@@ -172,14 +224,6 @@ const styles = StyleSheet.create({
   },
   greeting: { fontSize: 14, fontWeight: '600', marginBottom: 4, opacity: 0.7 },
   headerTitle: { fontSize: 28, fontWeight: '800', letterSpacing: -0.5 },
-  profileButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
-  },
-  levelText: { fontSize: 12, fontWeight: '700' },
 
   searchWrapper: {
     flexDirection: 'row',
@@ -243,7 +287,23 @@ const styles = StyleSheet.create({
   },
   tabText: { fontSize: 14, fontWeight: '600' },
 
-  listContent: { paddingBottom: 70 }, // Space for tab bar
-  emptyState: { alignItems: 'center', marginTop: 40, opacity: 0.5 },
-  emptyText: { marginTop: 12, fontSize: 16, fontWeight: '500' },
+  listContent: { paddingBottom: layout.scrollContentPaddingBottom },
+  emptyState: { alignItems: 'center', marginTop: 60, paddingHorizontal: spacing.xxxl },
+  emptyIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
+  },
+  emptyTitle: { fontSize: 20, fontWeight: '700', marginBottom: spacing.xs, textAlign: 'center' },
+  emptySubtitle: { fontSize: 15, fontWeight: '500', textAlign: 'center', opacity: 0.7 },
+
+  fabContainer: {
+    position: 'absolute',
+    bottom: layout.fabBottomOffset,
+    right: spacing.xl,
+    zIndex: 100,
+  },
 });

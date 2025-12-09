@@ -148,3 +148,11 @@ export const listItem = {
   large: 72,
   xlarge: 88,
 };
+
+// Layout dimensions
+export const layout = {
+  tabBarHeight: 50,
+  fabSize: 60,
+  fabBottomOffset: 70, // Tab bar height + margin
+  scrollContentPaddingBottom: 80, // Safe padding for scrollable content with tab bar
+};

@@ -23,12 +23,13 @@ import { SwipeableRow } from '@/components/ui/SwipeableRow';
 import { VoiceButton } from '@/components/ui/VoiceButton';
 import { SkeletonTaskCard, SkeletonList } from '@/components/ui/Skeleton';
 import { OfflineBadge } from '@/components/ui/OfflineIndicator';
+import { AnimatedFAB } from '@/components/ui/AnimatedFAB';
 import { useThemeStore } from '@/store/themeStore';
 import { useTaskStore } from '@/store/taskStore';
 import { useSyncStore } from '@/store/syncStore';
 import { useNotificationStore } from '@/store/notificationStore';
 import { useUserStore } from '@/store/userStore';
-import { getTheme, spacing, borderRadius, typography, shadows } from '@/theme';
+import { getTheme, spacing, borderRadius, typography, shadows, layout } from '@/theme';
 import { syncService } from '@/services/syncService';
 import { hapticsService } from '@/services/hapticsService';
 import { VoiceTranscription } from '@/services/voiceService';
@@ -148,15 +149,6 @@ export default function TodayScreen() {
         </Text>
         <View style={styles.compactHeaderRight}>
           <OfflineBadge />
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={() => navigation.navigate('Notifications' as never)}
-          >
-            <Ionicons name="notifications-outline" size={22} color={theme.colors.text} />
-            {unreadCount > 0 && (
-              <View style={[styles.notificationDot, { backgroundColor: theme.colors.error }]} />
-            )}
-          </TouchableOpacity>
         </View>
       </Animated.View>
 
@@ -429,23 +421,12 @@ export default function TodayScreen() {
 
       {/* Floating Action Button */}
       <View style={styles.fabContainer}>
-        <TouchableOpacity
-          style={[styles.fab, shadows.xl]}
-          onPress={() => {
-            hapticsService.medium();
-            navigation.navigate('QuickAdd' as never);
-          }}
-          activeOpacity={0.8}
-        >
-          <LinearGradient
-            colors={theme.colors.gradient.primary}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.fabGradient}
-          >
-            <Ionicons name="add" size={28} color={theme.colors.textOnColor} />
-          </LinearGradient>
-        </TouchableOpacity>
+        <AnimatedFAB
+          onPress={() => navigation.navigate('QuickAdd' as never)}
+          gradientColors={theme.colors.gradient.primary}
+          iconColor={theme.colors.textOnColor}
+          pulse={todayTasks.length === 0}
+        />
       </View>
     </SafeAreaView>
   );
@@ -495,7 +476,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 70, // Space for tab bar (50px + 20px margin)
+    paddingBottom: layout.scrollContentPaddingBottom,
   },
   largeHeader: {
     paddingHorizontal: spacing.xl,
@@ -695,5 +676,11 @@ const styles = StyleSheet.create({
   emptyText: {
     ...typography.subheadline,
     textAlign: 'center',
+  },
+  fabContainer: {
+    position: 'absolute',
+    bottom: layout.fabBottomOffset,
+    right: spacing.xl,
+    zIndex: 100,
   },
 });

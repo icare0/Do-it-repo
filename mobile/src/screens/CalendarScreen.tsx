@@ -14,14 +14,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { format, startOfMonth, endOfMonth, isSameDay } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { SkeletonTaskCard, SkeletonList } from '@/components/ui/Skeleton';
+import { AnimatedFAB } from '@/components/ui/AnimatedFAB';
 import { useThemeStore } from '@/store/themeStore';
 import { useTaskStore } from '@/store/taskStore';
-import { getTheme } from '@/theme';
+import { getTheme, shadows, layout, spacing } from '@/theme';
 import { calendarService } from '@/services/calendarService';
 import { hapticsService } from '@/services/hapticsService';
 import { CalendarEvent } from '@/types';
@@ -45,7 +47,6 @@ export default function CalendarScreen() {
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSyncing, setIsSyncing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const isLoadingEventsRef = useRef(false); // Flag pour éviter les appels multiples
 
@@ -102,33 +103,6 @@ export default function CalendarScreen() {
     setRefreshing(true);
     await loadCalendarEvents();
     setRefreshing(false);
-  };
-
-  const handleSync = async () => {
-    try {
-      setIsSyncing(true);
-      await hapticsService.medium();
-
-      console.log('🔄 [CalendarScreen] Synchronisation manuelle demandée...');
-      await loadCalendarEvents();
-
-      await hapticsService.success();
-      Alert.alert(
-        'Calendrier actualisé',
-        'Les événements ont été rechargés.',
-        [{ text: 'OK' }]
-      );
-    } catch (error) {
-      console.error('❌ [CalendarScreen] Erreur de sync:', error);
-      await hapticsService.error();
-      Alert.alert(
-        'Erreur',
-        'Impossible d\'actualiser le calendrier.',
-        [{ text: 'OK' }]
-      );
-    } finally {
-      setIsSyncing(false);
-    }
   };
 
   const handleDayPress = async (day: DateData) => {
@@ -229,20 +203,6 @@ export default function CalendarScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
       <View style={styles.header}>
         <Text style={[styles.title, { color: theme.colors.text }]}>Calendrier</Text>
-        <TouchableOpacity
-          style={[styles.syncButton, { backgroundColor: `${theme.colors.primary}15` }]}
-          onPress={handleSync}
-          disabled={isSyncing}
-        >
-          <Ionicons
-            name={isSyncing ? 'sync' : 'sync-outline'}
-            size={20}
-            color={theme.colors.primary}
-          />
-          <Text style={[styles.syncText, { color: theme.colors.primary }]}>
-            {isSyncing ? 'Sync...' : 'Sync'}
-          </Text>
-        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -430,6 +390,16 @@ export default function CalendarScreen() {
           </Card>
         </View>
       </ScrollView>
+
+      {/* Floating Action Button */}
+      <View style={styles.fabContainer}>
+        <AnimatedFAB
+          onPress={() => navigation.navigate('QuickAdd' as never)}
+          gradientColors={theme.colors.gradient.primary}
+          iconColor={theme.colors.textOnColor}
+          pulse={selectedTasks.length === 0 && selectedEvents.length === 0}
+        />
+      </View>
     </SafeAreaView>
   );
 }
@@ -448,21 +418,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: -0.5,
   },
-  syncButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 24,
-    gap: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  syncText: { fontSize: 15, fontWeight: '600' },
-  content: { padding: 24, paddingTop: 0, paddingBottom: 94 }, // Space for tab bar (50px + 44px padding)
+  content: { padding: spacing.xl, paddingTop: 0, paddingBottom: layout.scrollContentPaddingBottom + spacing.md },
   calendarContainer: {
     borderRadius: 16,
     overflow: 'hidden',
@@ -584,5 +540,11 @@ const styles = StyleSheet.create({
   summaryLabel: {
     fontSize: 12,
     fontWeight: '500',
+  },
+  fabContainer: {
+    position: 'absolute',
+    bottom: layout.fabBottomOffset,
+    right: spacing.xl,
+    zIndex: 100,
   },
 });
