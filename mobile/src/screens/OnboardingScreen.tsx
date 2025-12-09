@@ -13,6 +13,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useThemeStore } from '@/store/themeStore';
+import { useOnboardingStore } from '@/store/onboardingStore';
 import { getTheme } from '@/theme';
 import { authService } from '@/services/authService';
 import { hapticsService } from '@/services/hapticsService';
@@ -73,6 +74,7 @@ const slides: OnboardingSlide[] = [
 
 export default function OnboardingScreen() {
   const { colorScheme } = useThemeStore();
+  const { completeOnboarding } = useOnboardingStore();
   const theme = getTheme(colorScheme);
 
   const scrollViewRef = useRef<ScrollView>(null);
@@ -108,6 +110,8 @@ export default function OnboardingScreen() {
       setIsLoading(true);
       await hapticsService.medium();
       await authService.signInWithGoogle();
+      // Mark onboarding as completed after successful sign-in
+      await completeOnboarding();
     } catch (error) {
       console.error('Google Sign-In error:', error);
       await hapticsService.error();
