@@ -23,6 +23,7 @@ import { useAuthStore } from '@/store/authStore';
 import { getTheme } from '@/theme';
 import { nlpService } from '@/services/nlpService';
 import { smartTaskService } from '@/services/smartTaskService';
+import { notificationService } from '@/services/notificationService';
 import { database, TaskModel } from '@/database';
 import { syncService } from '@/services/syncService';
 
@@ -202,6 +203,16 @@ export default function QuickAddScreen() {
         createdAt: new Date(),
         updatedAt: new Date(),
       });
+
+      // Schedule notification if task has a date
+      if (taskData.date) {
+        await notificationService.scheduleTaskNotification({
+          id: newTask.id,
+          title: taskData.title,
+          startDate: taskData.date,
+          minutesBefore: 15, // Notification 15 minutes avant
+        });
+      }
 
       navigation.goBack();
     } catch (error) {

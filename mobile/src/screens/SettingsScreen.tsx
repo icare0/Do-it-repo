@@ -14,6 +14,7 @@ import { getTheme } from '@/theme';
 import { authService } from '@/services/authService';
 import { locationService } from '@/services/locationService';
 import { hapticsService } from '@/services/hapticsService';
+import { notificationService } from '@/services/notificationService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function SettingsScreen() {
@@ -94,6 +95,25 @@ export default function SettingsScreen() {
       console.error('Error toggling location:', error);
       Alert.alert('Erreur', 'Impossible de modifier les paramètres de localisation.', [{ text: 'OK' }]);
     }
+  }
+
+  async function handleTestNotification() {
+    await hapticsService.light();
+    await notificationService.sendImmediateNotification(
+      '✅ Test réussi !',
+      'Les notifications fonctionnent parfaitement 🎉'
+    );
+    Alert.alert('Notification envoyée', 'Tu devrais la recevoir dans quelques secondes !', [{ text: 'OK' }]);
+  }
+
+  async function handleListNotifications() {
+    await hapticsService.light();
+    await notificationService.listScheduledNotifications();
+    Alert.alert(
+      'Notifications planifiées',
+      'Regarde les logs dans la console pour voir toutes les notifications planifiées',
+      [{ text: 'OK' }]
+    );
   }
 
   return (
@@ -200,6 +220,31 @@ export default function SettingsScreen() {
           </Card>
         </View>
 
+        {/* Debug Notifications */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Debug Notifications 🔔</Text>
+          <Card style={[styles.debugCard, { backgroundColor: `${theme.colors.primary}08`, borderColor: `${theme.colors.primary}30`, borderWidth: 1 }]}>
+            <Text style={[styles.debugDescription, { color: theme.colors.textSecondary }]}>
+              Teste si les notifications fonctionnent correctement
+            </Text>
+            <View style={styles.debugButtons}>
+              <Button
+                title="🔔 Tester maintenant"
+                onPress={handleTestNotification}
+                size="small"
+                style={{ flex: 1 }}
+              />
+              <Button
+                title="📋 Voir planifiées"
+                onPress={handleListNotifications}
+                variant="outline"
+                size="small"
+                style={{ flex: 1 }}
+              />
+            </View>
+          </Card>
+        </View>
+
         {/* Logout */}
         <Card style={[styles.logoutCard, { backgroundColor: `${theme.colors.error}08`, borderColor: `${theme.colors.error}30` }]}>
           <View style={styles.logoutContent}>
@@ -287,6 +332,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#FFF',
+  },
+  debugCard: {
+    padding: 16,
+  },
+  debugDescription: {
+    fontSize: 14,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  debugButtons: {
+    flexDirection: 'row',
+    gap: 12,
   },
   logoutCard: {
     marginTop: 8,
