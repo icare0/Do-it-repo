@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Switch, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Switch, Alert, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation } from '@react-navigation/native';
 
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -12,9 +13,11 @@ import { useUserStore } from '@/store/userStore';
 import { getTheme } from '@/theme';
 import { authService } from '@/services/authService';
 import { locationService } from '@/services/locationService';
+import { hapticsService } from '@/services/hapticsService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function SettingsScreen() {
+  const navigation = useNavigation();
   const { colorScheme, toggleTheme } = useThemeStore();
   const theme = getTheme(colorScheme);
   const { user } = useAuthStore();
@@ -113,73 +116,46 @@ export default function SettingsScreen() {
           </View>
         </Card>
 
-        {/* Stats Section */}
+        {/* Stats Section - Compact */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Tes Statistiques 🎯</Text>
-
-          {/* Streak Card */}
-          <Card style={styles.statsCard}>
-            <LinearGradient
-              colors={['#FF6B35', '#F7931E']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.streakGradient}
-            >
-              <View style={styles.streakContent}>
-                <Ionicons name="flame" size={32} color="#FFF" />
-                <View style={styles.streakInfo}>
-                  <Text style={styles.streakValue}>{streak}</Text>
-                  <Text style={styles.streakLabel}>jours de série !</Text>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Progression</Text>
+          <TouchableOpacity
+            onPress={() => {
+              hapticsService.light();
+              navigation.navigate('Stats' as never);
+            }}
+            activeOpacity={0.7}
+          >
+            <Card style={styles.statsCard}>
+              <LinearGradient
+                colors={['#FF6B35', '#F7931E']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.statsGradient}
+              >
+                <View style={styles.statsRow}>
+                  <View style={styles.statsLeft}>
+                    <Ionicons name="flame" size={32} color="#FFF" />
+                    <View style={styles.statsInfo}>
+                      <Text style={styles.statsValue}>{streak} jours</Text>
+                      <Text style={styles.statsLabel}>Série active 🔥</Text>
+                    </View>
+                  </View>
+                  <View style={styles.statsRight}>
+                    <View style={styles.statMini}>
+                      <Ionicons name="trophy" size={16} color="#FFF" />
+                      <Text style={styles.statMiniText}>Lvl {level}</Text>
+                    </View>
+                    <View style={styles.statMini}>
+                      <Ionicons name="star" size={16} color="#FFF" />
+                      <Text style={styles.statMiniText}>{points} pts</Text>
+                    </View>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color="#FFF" style={{ opacity: 0.7 }} />
                 </View>
-              </View>
-              <Text style={styles.streakMotivation}>Continue comme ça ! 🚀</Text>
-            </LinearGradient>
-          </Card>
-
-          {/* Stats Grid */}
-          <View style={styles.statsGrid}>
-            {/* Level */}
-            <Card style={styles.statCard}>
-              <View style={[styles.statIconCircle, { backgroundColor: `${theme.colors.primary}15` }]}>
-                <Ionicons name="trophy" size={24} color={theme.colors.primary} />
-              </View>
-              <Text style={[styles.statValue, { color: theme.colors.text }]}>{level}</Text>
-              <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Niveau</Text>
+              </LinearGradient>
             </Card>
-
-            {/* Points */}
-            <Card style={styles.statCard}>
-              <View style={[styles.statIconCircle, { backgroundColor: `${theme.colors.secondary}15` }]}>
-                <Ionicons name="star" size={24} color={theme.colors.secondary} />
-              </View>
-              <Text style={[styles.statValue, { color: theme.colors.text }]}>{points}</Text>
-              <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Points</Text>
-            </Card>
-          </View>
-
-          {/* Completion Rate */}
-          <Card style={styles.completionCard}>
-            <View style={styles.completionHeader}>
-              <Text style={[styles.completionTitle, { color: theme.colors.text }]}>Taux de réussite</Text>
-              <Text style={[styles.completionPercent, { color: theme.colors.primary }]}>
-                {totalTasks > 0 ? Math.round((tasksCompleted / totalTasks) * 100) : 0}%
-              </Text>
-            </View>
-            <View style={[styles.progressBar, { backgroundColor: `${theme.colors.primary}15` }]}>
-              <View
-                style={[
-                  styles.progressFill,
-                  {
-                    backgroundColor: theme.colors.primary,
-                    width: `${totalTasks > 0 ? (tasksCompleted / totalTasks) * 100 : 0}%`,
-                  },
-                ]}
-              />
-            </View>
-            <Text style={[styles.completionStats, { color: theme.colors.textSecondary }]}>
-              {tasksCompleted} / {totalTasks} tâches terminées
-            </Text>
-          </Card>
+          </TouchableOpacity>
         </View>
 
         {/* Appearance */}
@@ -267,97 +243,50 @@ const styles = StyleSheet.create({
   settingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   settingInfo: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   settingLabel: { fontSize: 16 },
-  // Stats Section
-  statsCard: { marginBottom: 12, overflow: 'hidden' },
-  streakGradient: {
-    padding: 20,
+  // Stats Section - Compact
+  statsCard: { overflow: 'hidden' },
+  statsGradient: {
+    padding: 16,
     borderRadius: 16,
   },
-  streakContent: {
+  statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-    marginBottom: 8,
+    gap: 12,
   },
-  streakInfo: {
+  statsLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
     flex: 1,
   },
-  streakValue: {
-    fontSize: 36,
+  statsInfo: {
+    flex: 1,
+  },
+  statsValue: {
+    fontSize: 18,
     fontWeight: '800',
     color: '#FFF',
-    lineHeight: 40,
+    marginBottom: 2,
   },
-  streakLabel: {
-    fontSize: 16,
+  statsLabel: {
+    fontSize: 13,
     fontWeight: '600',
     color: '#FFF',
     opacity: 0.9,
   },
-  streakMotivation: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFF',
-    opacity: 0.8,
-    textAlign: 'center',
+  statsRight: {
+    gap: 6,
   },
-  statsGrid: {
+  statMini: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 12,
-  },
-  statCard: {
-    flex: 1,
     alignItems: 'center',
-    paddingVertical: 20,
+    gap: 6,
   },
-  statIconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  statValue: {
-    fontSize: 28,
-    fontWeight: '800',
-    marginBottom: 4,
-  },
-  statLabel: {
+  statMiniText: {
     fontSize: 12,
-    fontWeight: '600',
-  },
-  completionCard: {
-    padding: 20,
-  },
-  completionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  completionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  completionPercent: {
-    fontSize: 24,
-    fontWeight: '800',
-  },
-  progressBar: {
-    height: 8,
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  completionStats: {
-    fontSize: 13,
-    textAlign: 'center',
+    fontWeight: '700',
+    color: '#FFF',
   },
   logoutCard: {
     marginTop: 8,
