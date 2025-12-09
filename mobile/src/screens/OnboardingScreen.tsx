@@ -109,7 +109,7 @@ export default function OnboardingScreen() {
     try {
       setIsLoading(true);
       await hapticsService.medium();
-      await authService.signInWithGoogle();
+      await authService.loginWithGoogle();
       // Mark onboarding as completed after successful sign-in
       await completeOnboarding();
     } catch (error) {
