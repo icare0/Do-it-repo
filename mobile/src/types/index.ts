@@ -95,4 +95,5 @@ export type RootStackParamList = {
   FocusMode: { taskTitle?: string } | undefined;
   SmartAssistant: undefined;
   Stats: undefined;
+  WidgetSetup: undefined;
 };

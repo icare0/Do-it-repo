@@ -2,4 +2,10 @@
   <string name="app_name">Do\'It</string>
   <string name="expo_splash_screen_resize_mode" translatable="false">contain</string>
   <string name="expo_splash_screen_status_bar_translucent" translatable="false">false</string>
+
+  <!-- Widget Descriptions -->
+  <string name="today_widget_description">Affiche vos tâches du jour avec progression</string>
+  <string name="next_task_widget_description">Affiche votre prochaine tâche urgente</string>
+  <string name="stats_widget_description">Affiche vos statistiques de productivité</string>
+  <string name="smart_suggestions_widget_description">Affiche les suggestions d\'optimisation</string>
 </resources>
