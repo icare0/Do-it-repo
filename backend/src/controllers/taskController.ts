@@ -44,6 +44,7 @@ export const getTasks = async (req: AuthRequest, res: Response): Promise<void> =
     const serializedTasks = tasks.map(task => ({
       id: task._id.toString(),
       _id: task._id.toString(),
+      clientId: task.clientId, // Include clientId
       userId: task.userId,
       title: task.title,
       description: task.description,
@@ -359,6 +360,7 @@ export const syncTasks = async (req: AuthRequest, res: Response): Promise<void> 
             const taskData = {
               ...clientTask.data,
               userId: req.user.id,
+              clientId: clientTask.id, // Store the client's UUID
             };
 
             // ✅ Convert date strings
@@ -374,17 +376,17 @@ export const syncTasks = async (req: AuthRequest, res: Response): Promise<void> 
             // Return both the server-generated _id and the client's original id for mapping
             const taskWithMapping = {
               ...task.toObject(),
-              clientId: clientTask.id, // Include client's ID for mapping
+              clientId: clientTask.id,
             };
 
             syncedTasks.push(taskWithMapping);
           }
         } else if (clientTask.operation === 'update') {
-          // Check if ID is valid before attempting update
-          if (!isValidObjectId(clientTask.id)) {
-            errors.push(`Task ${clientTask.id}: Invalid ObjectId format`);
-            continue;
-          }
+          // Check if ID is valid ObjectId
+          const isMongoId = isValidObjectId(clientTask.id);
+          const query = isMongoId
+            ? { _id: clientTask.id, userId: req.user.id }
+            : { clientId: clientTask.id, userId: req.user.id };
 
           const updateData = { ...clientTask.data, updatedAt: new Date() };
 
@@ -397,7 +399,7 @@ export const syncTasks = async (req: AuthRequest, res: Response): Promise<void> 
           }
 
           const task = await Task.findOneAndUpdate(
-            { _id: clientTask.id, userId: req.user.id },
+            query,
             { $set: updateData },
             { new: true, runValidators: true }
           );
@@ -405,21 +407,23 @@ export const syncTasks = async (req: AuthRequest, res: Response): Promise<void> 
           if (task) {
             syncedTasks.push(task);
           } else {
+            console.log(`Task not found for update: ${clientTask.id} (Query: ${JSON.stringify(query)})`);
             errors.push(`Task ${clientTask.id}: Not found for update`);
           }
         } else if (clientTask.operation === 'delete') {
-          // Check if ID is valid before attempting delete
-          if (!isValidObjectId(clientTask.id)) {
-            errors.push(`Task ${clientTask.id}: Invalid ObjectId format`);
-            continue;
-          }
+          // Check if ID is valid ObjectId
+          const isMongoId = isValidObjectId(clientTask.id);
+          const query = isMongoId
+            ? { _id: clientTask.id, userId: req.user.id }
+            : { clientId: clientTask.id, userId: req.user.id };
 
-          const deletedTask = await Task.findOneAndDelete({
-            _id: clientTask.id,
-            userId: req.user.id,
-          });
+          const deletedTask = await Task.findOneAndDelete(query);
 
           if (!deletedTask) {
+            // Try soft delete check? No, operation is delete.
+            // Maybe it was already deleted?
+            // Check if it exists but soft deleted?
+            // For now just error if strict, or ignore.
             errors.push(`Task ${clientTask.id}: Not found for deletion`);
           }
         }

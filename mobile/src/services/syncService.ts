@@ -1,4 +1,5 @@
 import NetInfo from '@react-native-community/netinfo';
+import { Q } from '@nozbe/watermelondb';
 import { database, TaskModel, SyncQueueModel } from '@/database';
 import { apiService } from './api';
 import { useSyncStore } from '@/store/syncStore';
@@ -300,8 +301,8 @@ class SyncService {
             title: serverTask.title,
           });
 
-          // Utiliser _id ou id selon ce que renvoie le serveur (MongoDB utilise _id)
-          const taskId = serverTask._id || serverTask.id;
+          // Utiliser clientId (notre UUID local) en priorité, sinon _id ou id
+          const taskId = serverTask.clientId || serverTask._id || serverTask.id;
           if (!taskId) {
             console.warn('Task without ID received from server:', JSON.stringify(serverTask));
             continue;
@@ -319,6 +320,14 @@ class SyncService {
             }
 
             if (localTask) {
+              // Si la tâche est marquée comme supprimée localement, on ne la met pas à jour depuis le serveur
+              // pour éviter de la "ressusciter" si le serveur ne sait pas encore qu'elle est supprimée
+              // @ts-ignore - _status est interne mais accessible
+              if (localTask._status === 'deleted') {
+                console.log(`Skipping update for locally deleted task: ${taskId}`);
+                continue;
+              }
+
               console.log(`Updating existing task: ${taskId}`);
               await localTask.update((task) => {
                 Object.assign(task, this.mapServerTaskToLocal(serverTask));
@@ -474,8 +483,11 @@ class SyncService {
       let tasks: TaskModel[] = [];
 
       try {
-        tasks = await database.get<TaskModel>('tasks').query().fetch();
-        console.log(`Found ${tasks.length} tasks in local database`);
+        // Filter out deleted tasks to prevent them from showing up after refresh
+        tasks = await database.get<TaskModel>('tasks')
+          .query(Q.where('_status', Q.notEq('deleted')))
+          .fetch();
+        console.log(`Found ${tasks.length} active tasks in local database`);
       } catch (fetchError) {
         console.error('Error fetching tasks from database:', fetchError);
         // Si on ne peut pas lire la DB, on remet un tableau vide

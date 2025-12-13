@@ -8,6 +8,10 @@ const taskSchema = new Schema<ITask>(
       required: true,
       index: true,
     },
+    clientId: {
+      type: String,
+      index: true,
+    },
     title: {
       type: String,
       required: true,
@@ -124,7 +128,7 @@ const taskSchema = new Schema<ITask>(
   {
     timestamps: true,
     toJSON: {
-      transform: function(doc: any, ret: any) {
+      transform: function (doc: any, ret: any) {
         ret.id = ret._id;
         delete ret._id;
         delete ret.__v;

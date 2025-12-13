@@ -203,7 +203,7 @@ export default function SettingsScreen() {
         </View>
 
         {/* Logout */}
-        <Card variant="elevated" style={[styles.logoutCard, { backgroundColor: `${theme.colors.error}08` }]}>
+        <Card variant="flat" style={[styles.logoutCard, { backgroundColor: `${theme.colors.error}08` }]}>
           <View style={styles.logoutContent}>
             <View style={[styles.logoutIconCircle, { backgroundColor: `${theme.colors.error}15` }]}>
               <Ionicons name="log-out-outline" size={24} color={theme.colors.error} />

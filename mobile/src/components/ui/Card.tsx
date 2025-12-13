@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   ViewStyle,
+  StyleProp,
   TouchableOpacity,
   Pressable,
 } from 'react-native';
@@ -14,7 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 interface CardProps {
   children: React.ReactNode;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
   onPress?: () => void;
   onLongPress?: () => void;
   variant?: 'default' | 'elevated' | 'glass' | 'gradient' | 'flat';
@@ -149,7 +150,7 @@ export const Card: React.FC<CardProps> = ({
 interface SectionCardProps {
   children: React.ReactNode;
   title?: string;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
 }
 
 export const SectionCard: React.FC<SectionCardProps> = ({

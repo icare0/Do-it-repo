@@ -15,6 +15,7 @@ import { useNavigation } from '@react-navigation/native';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { LinearGradient } from 'expo-linear-gradient';
+import ConfettiCannon from 'react-native-confetti-cannon';
 
 import { Card } from '@/components/ui/Card';
 import { Checkbox } from '@/components/ui/Checkbox';
@@ -34,6 +35,7 @@ import { syncService } from '@/services/syncService';
 import { hapticsService } from '@/services/hapticsService';
 import { VoiceTranscription } from '@/services/voiceService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { database, TaskModel } from '@/database';
 
 export default function TodayScreen() {
   const navigation = useNavigation();
@@ -45,6 +47,8 @@ export default function TodayScreen() {
   const { points, level, streak } = useUserStore();
   const [isLoading, setIsLoading] = useState(false);
   const [scrollY] = useState(new Animated.Value(0));
+
+  const confettiRef = React.useRef<ConfettiCannon>(null);
 
   const today = new Date();
   const todayStr = format(today, 'yyyy-MM-dd');
@@ -73,8 +77,26 @@ export default function TodayScreen() {
   );
 
   const upcomingTasks = tasks
-    .filter((task) => !task.completed && task.startDate && task.startDate > today)
+    .filter(
+      (task) =>
+        !task.completed &&
+        task.startDate &&
+        task.startDate > today &&
+        format(task.startDate, 'yyyy-MM-dd') !== todayStr
+    )
     .slice(0, 3);
+
+  const totalTasks = todayTasks.length + completedToday.length;
+  const progressPercent = totalTasks > 0 ? (completedToday.length / totalTasks) : 0;
+
+  // Effect for celebration
+  useEffect(() => {
+    if (progressPercent === 1 && completedToday.length > 0) {
+      setTimeout(() => {
+        confettiRef.current?.start();
+      }, 500); // Small delay for effect
+    }
+  }, [progressPercent, completedToday.length]);
 
   async function handleRefresh() {
     setIsLoading(true);
@@ -101,17 +123,23 @@ export default function TodayScreen() {
     hapticsService.medium();
   }
 
-  function handleDeleteTask(taskId: string) {
-    deleteTask(taskId);
-    hapticsService.medium();
+  async function handleDeleteTask(taskId: string) {
+    try {
+      await database.write(async () => {
+        const dbTask = await database.get<TaskModel>('tasks').find(taskId);
+        await dbTask.markAsDeleted();
+      });
+      await syncService.addToSyncQueue('task', taskId, 'delete', {});
+      deleteTask(taskId);
+      hapticsService.medium();
+    } catch (error) {
+      console.error('Failed to delete task:', error);
+    }
   }
 
   function handleVoiceTranscription(result: VoiceTranscription) {
     navigation.navigate('QuickAdd' as never, { prefillText: result.text } as never);
   }
-
-  const totalTasks = todayTasks.length + completedToday.length;
-  const progressPercent = totalTasks > 0 ? (completedToday.length / totalTasks) : 0;
 
   // Greeting based on time of day
   const getGreeting = () => {
@@ -226,14 +254,23 @@ export default function TodayScreen() {
           ) : todayTasks.length === 0 ? (
             <Card variant="elevated" padding="xxxl">
               <View style={styles.emptyState}>
-                <View style={[styles.emptyIcon, { backgroundColor: theme.colors.successLight }]}>
-                  <Ionicons name="checkmark-circle" size={32} color={theme.colors.success} />
+                <View style={[
+                  styles.emptyIcon,
+                  { backgroundColor: completedToday.length > 0 ? `${theme.colors.success}20` : `${theme.colors.primary}15` }
+                ]}>
+                  <Ionicons
+                    name={completedToday.length > 0 ? "checkmark-circle" : "calendar-number-outline"}
+                    size={32}
+                    color={completedToday.length > 0 ? theme.colors.success : theme.colors.primary}
+                  />
                 </View>
                 <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
-                  Tout est fait !
+                  {completedToday.length > 0 ? "Tout est fait !" : "Rien de prévu"}
                 </Text>
                 <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
-                  Vous n'avez aucune tâche pour aujourd'hui
+                  {completedToday.length > 0
+                    ? "Vous avez terminé toutes vos tâches du jour !"
+                    : "Rien de prévu pour le moment, profitez-en !"}
                 </Text>
               </View>
             </Card>
@@ -244,87 +281,89 @@ export default function TodayScreen() {
                   key={task.id}
                   leftAction={{
                     icon: 'calendar-outline',
-                    color: theme.colors.textOnColor,
-                    backgroundColor: theme.colors.orange,
+                    color: '#fff',
+                    gradient: ['#F59E0B', '#FCD34D'],
                     onPress: () => handlePostponeTask(task),
                     label: 'Demain',
                   }}
                   rightAction={{
                     icon: 'trash-outline',
-                    color: theme.colors.textOnColor,
-                    backgroundColor: theme.colors.error,
+                    color: '#fff',
+                    gradient: ['#EF4444', '#F87171'],
                     onPress: () => handleDeleteTask(task.id),
                     label: 'Supprimer',
                   }}
                 >
-                  <Card
-                    variant="elevated"
-                    padding="lg"
-                    borderRadiusSize="lg"
-                    style={[
-                      styles.taskCard,
-                      index === todayTasks.length - 1 && styles.taskCardLast,
-                    ]}
-                    onPress={() => handleTaskPress(task)}
-                  >
-                    <View style={styles.taskContent}>
-                      <Checkbox
-                        checked={task.completed}
-                        onPress={() => handleToggleTask(task.id)}
-                      />
-                      <View style={styles.taskInfo}>
-                        <View style={styles.taskHeader}>
+                  <View style={styles.timelineRow}>
+                    {/* Time Column */}
+                    <View style={styles.timeColumn}>
+                      <Text style={[styles.timeText, { color: theme.colors.textSecondary }]}>
+                        {task.startDate ? format(task.startDate, 'HH:mm') : '--:--'}
+                      </Text>
+                      {task.startDate && (
+                        <View style={[styles.timeDot, { backgroundColor: theme.colors.primary }]} />
+                      )}
+                    </View>
+
+                    {/* Task Card */}
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() => handleTaskPress(task)}
+                      style={[
+                        styles.timelineCard,
+                        {
+                          backgroundColor: theme.colors.surface,
+                          shadowColor: theme.colors.shadowColor || '#000',
+                          borderColor: theme.colors.border,
+                        }
+                      ]}
+                    >
+                      <View style={styles.cardMainContent}>
+                        <View style={styles.cardHeader}>
                           <Text
                             style={[
-                              styles.taskTitle,
+                              styles.cardTitle,
                               { color: theme.colors.text },
-                              task.completed && styles.taskTitleCompleted,
+                              task.completed && styles.taskTitleCompleted
                             ]}
                             numberOfLines={2}
                           >
                             {task.title}
                           </Text>
-                          {task.priority === 'high' && (
-                            <View style={[styles.priorityDot, { backgroundColor: theme.colors.error }]} />
-                          )}
+                          <Checkbox
+                            checked={task.completed}
+                            onPress={() => handleToggleTask(task.id)}
+                            size={22}
+                          />
                         </View>
 
-                        {task.description && (
-                          <Text
-                            style={[styles.taskDescription, { color: theme.colors.textTertiary }]}
-                            numberOfLines={1}
-                          >
-                            {task.description}
-                          </Text>
+                        {(task.description || task.location || task.category) && (
+                          <View style={styles.cardDetails}>
+                            {task.location && (
+                              <View style={styles.detailItem}>
+                                <Ionicons name="location-sharp" size={12} color={theme.colors.textTertiary} />
+                                <Text style={[styles.detailText, { color: theme.colors.textTertiary }]} numberOfLines={1}>
+                                  {task.location.name}
+                                </Text>
+                              </View>
+                            )}
+                            {task.category && (
+                              <View style={[styles.detailItem, {
+                                backgroundColor: theme.colors.primary + '10',
+                                paddingHorizontal: 6,
+                                paddingVertical: 2,
+                                borderRadius: 4
+                              }]}>
+                                <Text style={[styles.detailText, { color: theme.colors.primary, fontSize: 11, fontWeight: '600' }]}>
+                                  {task.category.toUpperCase()}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
                         )}
-
-                        <View style={styles.taskMeta}>
-                          {task.startDate && (
-                            <View style={styles.metaItem}>
-                              <Ionicons name="time-outline" size={14} color={theme.colors.textSecondary} />
-                              <Text style={[styles.metaText, { color: theme.colors.textSecondary }]}>
-                                {format(task.startDate, 'HH:mm')}
-                              </Text>
-                            </View>
-                          )}
-                          {task.location && (
-                            <View style={styles.metaItem}>
-                              <Ionicons name="location-outline" size={14} color={theme.colors.textSecondary} />
-                              <Text
-                                style={[styles.metaText, { color: theme.colors.textSecondary }]}
-                                numberOfLines={1}
-                              >
-                                {task.location.name}
-                              </Text>
-                            </View>
-                          )}
-                          {task.category && (
-                            <CategoryBadge category={task.category as any} size="small" />
-                          )}
-                        </View>
                       </View>
-                    </View>
-                  </Card>
+                    </TouchableOpacity>
+                  </View>
                 </SwipeableRow>
               ))}
             </View>
@@ -418,6 +457,18 @@ export default function TodayScreen() {
           </View>
         )}
       </Animated.ScrollView>
+
+      {/* Confetti Cannon */}
+      {/* Confetti Cannon removed for debugging */}
+      {/* <ConfettiCannon
+        ref={confettiRef}
+        count={200}
+        origin={{ x: -10, y: 0 }}
+        autoStart={false}
+        fadeOut={true}
+        fallSpeed={3000}
+        colors={[theme.colors.primary, theme.colors.secondary, theme.colors.success, '#FFD700']}
+      /> */}
 
       {/* Floating Action Button */}
       <View style={styles.fabContainer}>
@@ -682,5 +733,69 @@ const styles = StyleSheet.create({
     bottom: layout.fabBottomOffset,
     right: spacing.xl,
     zIndex: 100,
+  },
+  timelineRow: {
+    flexDirection: 'row',
+    marginBottom: spacing.md,
+  },
+  timeColumn: {
+    width: 50,
+    alignItems: 'center',
+    paddingTop: 16,
+    marginRight: 8,
+  },
+  timeText: {
+    ...typography.caption1Emphasized,
+    fontSize: 13,
+  },
+  timeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginTop: 4,
+  },
+  timelineCard: {
+    flex: 1,
+    borderRadius: borderRadius.xl,
+    padding: spacing.md,
+    justifyContent: 'center',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+    borderWidth: 1,
+  },
+  simpleCard: {
+    marginBottom: spacing.md,
+  },
+  cardMainContent: {
+    gap: 8,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  cardTitle: {
+    ...typography.bodyEmphasized,
+    fontSize: 16,
+    flex: 1,
+    lineHeight: 22,
+  },
+  cardDetails: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  detailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  detailText: {
+    ...typography.caption1,
+    fontSize: 12,
   },
 });

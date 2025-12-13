@@ -96,11 +96,38 @@ class NLPService {
     if (relativeDateMatch) {
       const keyword = relativeDateMatch[1].toLowerCase().replace("'", '');
       const daysToAdd = keyword === 'aujourdhui' || keyword === 'aujourdhui' ? 0 :
-                        keyword === 'demain' ? 1 : 2;
+        keyword === 'demain' ? 1 : 2;
       const date = parsed.date || new Date();
       date.setDate(date.getDate() + daysToAdd);
       parsed.date = date;
       cleanedInput = cleanedInput.replace(relativeDateMatch[0], '').trim();
+    }
+
+    // Parse specific days (Lundi, Mardi, etc.)
+    const daysOfWeek = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
+    const dayPattern = new RegExp(`\\b(${daysOfWeek.join('|')})\\b`, 'i');
+    const dayMatch = input.match(dayPattern);
+    if (dayMatch) {
+      const dayName = dayMatch[1].toLowerCase();
+      const targetDay = this.dayKeywords[dayName]; // 1=Lundi ... 6=Samedi, 0=Dimanche
+
+      if (targetDay !== undefined) {
+        const date = parsed.date || new Date();
+        const currentDay = date.getDay();
+
+        let daysUntil = targetDay - currentDay;
+        if (daysUntil <= 0) {
+          // If the day is today or passed earlier in week, assume next week
+          // Unless user explicitly said "ce" Monday? But we don't catch that yet.
+          // Defaulting to next occurence (upcoming strict).
+          // If today is Monday(1) and input is Monday, daysUntil=0 -> Next Monday (+7).
+          daysUntil += 7;
+        }
+
+        date.setDate(date.getDate() + daysUntil);
+        parsed.date = date;
+        cleanedInput = cleanedInput.replace(dayMatch[0], '').trim();
+      }
     }
 
     // Parse absolute dates (DD/MM, DD/MM/YYYY)
@@ -116,19 +143,22 @@ class NLPService {
       cleanedInput = cleanedInput.replace(absoluteDateMatch[0], '').trim();
     }
 
-    // Parse time (14h30, 14:30, 14h, à 14h30)
-    const timePattern = /(?:à\s+)?(\d{1,2})[h:](\d{2})?/i;
+    // Parse time (14h30, 14:30, 14h, à 14h30, a 14h30)
+    // Updated regex to catch 'a' (unaccented) as a preposition, and ensure it's a whole word match for the preposition
+    const timePattern = /(?:\b(?:à|a|vers|pour)\s+)?(\d{1,2})[h:](\d{2})?/i;
     const timeMatch = input.match(timePattern);
     if (timeMatch) {
       const hour = parseInt(timeMatch[1]);
       const minute = timeMatch[2] ? parseInt(timeMatch[2]) : 0;
       parsed.time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-      cleanedInput = cleanedInput.replace(timeMatch[0], '').trim();
 
-      // If we have a time but no date, assume today
+      // Update the date object with the extracted time
       if (!parsed.date) {
         parsed.date = new Date();
       }
+      parsed.date.setHours(hour, minute, 0, 0);
+
+      cleanedInput = cleanedInput.replace(timeMatch[0], '').trim();
     }
 
     // Detect category
@@ -141,12 +171,29 @@ class NLPService {
 
     parsed.title = cleanedInput;
 
-    // Parse duration
-    const durationMatch = input.match(/(\d+)\s*(h|heure|heures|min|minutes?)/i);
+    // Parse duration (e.g. 1h30, 1h 30min, 1h, 30min)
+    // Regex for:
+    // 1. "1h30", "1h 30", "1h 30min" -> Group 1 (hours), Group 2 (minutes)
+    // 2. "30min", "30 min" -> Group 3 (minutes)
+    const durationMatch = cleanedInput.match(/(\d+)\s*(?:h|heure|heures)(?:\s*(\d+)\s*(?:m|min|minutes?)?)?|(\d+)\s*(?:m|min|minutes?)/i);
+
     if (durationMatch) {
-      const value = parseInt(durationMatch[1]);
-      const unit = durationMatch[2].toLowerCase();
-      parsed.duration = unit.startsWith('h') ? value * 60 : value;
+      let totalMinutes = 0;
+
+      // Case 1: Hours defined (and optional minutes)
+      if (durationMatch[1]) {
+        const hours = parseInt(durationMatch[1]);
+        totalMinutes = hours * 60;
+        if (durationMatch[2]) {
+          totalMinutes += parseInt(durationMatch[2]);
+        }
+      }
+      // Case 2: Only minutes
+      else if (durationMatch[3]) {
+        totalMinutes = parseInt(durationMatch[3]);
+      }
+
+      parsed.duration = totalMinutes;
       parsed.title = parsed.title.replace(durationMatch[0], '').trim();
     }
 

@@ -26,6 +26,7 @@ export interface IUser extends Document {
 
 export interface ITask extends Document {
   userId: string;
+  clientId?: string;
   title: string;
   description?: string;
   completed: boolean;

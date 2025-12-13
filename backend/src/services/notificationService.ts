@@ -17,7 +17,7 @@ export interface NotificationPayload {
   body: string;
   data?: { [key: string]: string };
   taskId?: string;
-  type: 'reminder' | 'geofence' | 'recurring' | 'general';
+  type: 'reminder' | 'geofence' | 'recurring' | 'general' | 'streak';
 }
 
 class NotificationService {
@@ -87,7 +87,7 @@ class NotificationService {
         android: {
           priority: 'high',
           notification: {
-            sound: 'default',
+
             channelId: 'doit_reminders',
             // Style de notification riche
             color: this.getNotificationColor(payload.type),
@@ -156,7 +156,7 @@ class NotificationService {
     } catch (error: any) {
       // Gérer les erreurs de token invalide
       if (error.code === 'messaging/invalid-registration-token' ||
-          error.code === 'messaging/registration-token-not-registered') {
+        error.code === 'messaging/registration-token-not-registered') {
         logger.warn(`⚠️  Invalid FCM token for user ${payload.userId}, clearing token`);
         await User.findByIdAndUpdate(payload.userId, { $unset: { fcmToken: 1 } });
       } else {

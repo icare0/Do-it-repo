@@ -234,18 +234,7 @@ export function DailyBriefing({ onDismiss, onTaskPress, onFocusPress }: DailyBri
         </View>
       </Animated.View>
 
-      {/* Dismiss Button */}
-      {onDismiss && expanded && (
-        <TouchableOpacity
-          style={styles.dismissButton}
-          onPress={() => {
-            hapticsService.light();
-            onDismiss();
-          }}
-        >
-          <Ionicons name="close" size={18} color={theme.colors.textTertiary} />
-        </TouchableOpacity>
-      )}
+
     </Card>
   );
 }

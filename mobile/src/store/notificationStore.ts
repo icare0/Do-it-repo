@@ -42,7 +42,7 @@ interface NotificationState {
   unreadCount: number;
 
   // Actions
-  addNotification: (notification: Omit<NotificationItem, 'id' | 'timestamp' | 'read'>) => void;
+  addNotification: (notification: Omit<NotificationItem, 'timestamp' | 'read'> & { id?: string }) => void;
   markAsRead: (notificationId: string) => void;
   markAllAsRead: () => void;
   deleteNotification: (notificationId: string) => void;
@@ -78,9 +78,16 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   unreadCount: 0,
 
   addNotification: (notification) => {
+    const { notifications } = get();
+
+    // Check for duplicates if ID is provided
+    if (notification.id && notifications.some(n => n.id === notification.id)) {
+      return;
+    }
+
     const newNotification: NotificationItem = {
       ...notification,
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      id: notification.id || Date.now().toString() + Math.random().toString(36).substr(2, 9),
       timestamp: new Date(),
       read: false,
     };
@@ -145,9 +152,9 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
       const notifications: NotificationItem[] = notificationsJson
         ? JSON.parse(notificationsJson).map((n: any) => ({
-            ...n,
-            timestamp: new Date(n.timestamp),
-          }))
+          ...n,
+          timestamp: new Date(n.timestamp),
+        }))
         : [];
 
       const settings: NotificationSettings = settingsJson

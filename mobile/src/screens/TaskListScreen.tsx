@@ -5,13 +5,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import Animated, { FadeInDown, Layout } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
+import { format, isAfter, startOfTomorrow } from 'date-fns';
 
 import { PremiumTaskItem } from '@/components/PremiumTaskItem';
+import { SwipeableRow } from '@/components/ui/SwipeableRow';
 import { AnimatedFAB } from '@/components/ui/AnimatedFAB';
 import { useThemeStore } from '@/store/themeStore';
 import { useTaskStore } from '@/store/taskStore';
 import { useUserStore } from '@/store/userStore';
 import { getTheme, shadows, layout, spacing } from '@/theme';
+import { database, TaskModel } from '@/database';
+import { syncService } from '@/services/syncService';
+import { hapticsService } from '@/services/hapticsService';
 
 const { width } = Dimensions.get('window');
 
@@ -19,7 +24,7 @@ export default function TaskListScreen() {
   const navigation = useNavigation();
   const { colorScheme } = useThemeStore();
   const theme = getTheme(colorScheme);
-  const { tasks, toggleTaskCompletion, setSelectedTask, searchQuery, setSearchQuery, filter, setFilter } = useTaskStore();
+  const { tasks, toggleTaskCompletion, deleteTask, setSelectedTask, searchQuery, setSearchQuery, filter, setFilter } = useTaskStore();
   const { points } = useUserStore();
 
   const [activeTab, setActiveTab] = useState(filter);
@@ -69,11 +74,47 @@ export default function TaskListScreen() {
     setFilter(newFilter);
   };
 
-  const filteredTasks = tasks.filter(task =>
-    task.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredTasks = tasks.filter(task => {
+    // 1. Search Filter
+    if (!task.title.toLowerCase().includes(searchQuery.toLowerCase())) {
+      return false;
+    }
+
+    // 2. Tab Filter
+    switch (filter) {
+      case 'today':
+        if (task.completed || !task.startDate) return false;
+        return format(new Date(task.startDate), 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
+
+      case 'upcoming':
+        if (task.completed || !task.startDate) return false;
+        return isAfter(new Date(task.startDate), startOfTomorrow());
+
+      case 'completed':
+        return task.completed;
+
+      case 'all':
+      default:
+        // Show all active tasks (pending)
+        return !task.completed;
+    }
+  });
 
   const highPriorityTasks = tasks.filter(t => !t.completed && t.priority === 'high');
+
+  async function handleDeleteTask(taskId: string) {
+    try {
+      await database.write(async () => {
+        const dbTask = await database.get<TaskModel>('tasks').find(taskId);
+        await dbTask.markAsDeleted();
+      });
+      await syncService.addToSyncQueue('task', taskId, 'delete', {});
+      deleteTask(taskId);
+      hapticsService.medium();
+    } catch (error) {
+      console.error('Failed to delete task:', error);
+    }
+  }
 
   function handleTaskPress(task: any) {
     setSelectedTask(task);
@@ -178,6 +219,7 @@ export default function TaskListScreen() {
               task={item}
               onPress={handleTaskPress}
               onToggle={toggleTaskCompletion}
+              onDelete={handleDeleteTask}
             />
           </Animated.View>
         )}

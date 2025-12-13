@@ -1,26 +1,24 @@
 import React, { useRef } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   Animated,
   PanResponder,
   Dimensions,
-  TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useThemeStore } from '@/store/themeStore';
 import { getTheme } from '@/theme';
 import { hapticsService } from '@/services/hapticsService';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const SWIPE_THRESHOLD = 80;
-const ACTION_WIDTH = 80;
+const TRIGGER_THRESHOLD = SCREEN_WIDTH * 0.3; // 30% to trigger
 
 interface SwipeAction {
   icon: string;
   color: string;
-  backgroundColor: string;
+  gradient: readonly [string, string];
   onPress: () => void;
   label?: string;
 }
@@ -29,180 +27,155 @@ interface SwipeableRowProps {
   children: React.ReactNode;
   leftAction?: SwipeAction;
   rightAction?: SwipeAction;
-  onSwipeLeft?: () => void;
-  onSwipeRight?: () => void;
   disabled?: boolean;
+  style?: any;
 }
 
 export function SwipeableRow({
   children,
   leftAction,
   rightAction,
-  onSwipeLeft,
-  onSwipeRight,
   disabled = false,
+  style,
 }: SwipeableRowProps) {
   const { colorScheme } = useThemeStore();
   const theme = getTheme(colorScheme);
   const translateX = useRef(new Animated.Value(0)).current;
-  const lastOffset = useRef(0);
+  const actionIconScale = useRef(new Animated.Value(0)).current;
 
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
       onMoveShouldSetPanResponder: (_, gestureState) => {
         if (disabled) return false;
+        // Only allow horizontal swipes
         return Math.abs(gestureState.dx) > 10 && Math.abs(gestureState.dy) < 10;
       },
       onPanResponderGrant: () => {
-        translateX.setOffset(lastOffset.current);
-        translateX.setValue(0);
+        // Prepare for interaction
       },
       onPanResponderMove: (_, gestureState) => {
         let newValue = gestureState.dx;
 
-        // Limit swipe distance
+        // Prevent swipe if action doesn't exist
         if (!leftAction && newValue > 0) newValue = 0;
         if (!rightAction && newValue < 0) newValue = 0;
 
-        // Add resistance at edges
-        if (newValue > ACTION_WIDTH) {
-          newValue = ACTION_WIDTH + (newValue - ACTION_WIDTH) * 0.3;
-        }
-        if (newValue < -ACTION_WIDTH) {
-          newValue = -ACTION_WIDTH + (newValue + ACTION_WIDTH) * 0.3;
-        }
-
         translateX.setValue(newValue);
 
-        // Haptic feedback at threshold
-        if (Math.abs(newValue) > SWIPE_THRESHOLD && Math.abs(lastOffset.current) < SWIPE_THRESHOLD) {
-          hapticsService.light();
-        }
+        // Animate icon scale based on pull distance
+        const progress = Math.min(Math.abs(newValue) / (TRIGGER_THRESHOLD * 0.8), 1.3);
+        actionIconScale.setValue(progress);
       },
       onPanResponderRelease: (_, gestureState) => {
-        translateX.flattenOffset();
+        const { dx } = gestureState;
 
-        const currentValue = gestureState.dx + lastOffset.current;
+        if (leftAction && dx > TRIGGER_THRESHOLD) {
+          // Trigger Left Action
+          hapticsService.success();
 
-        if (currentValue > SWIPE_THRESHOLD && leftAction) {
-          // Swipe right - show left action
-          Animated.spring(translateX, {
-            toValue: ACTION_WIDTH,
+          Animated.timing(translateX, {
+            toValue: SCREEN_WIDTH,
+            duration: 200,
             useNativeDriver: true,
-            tension: 100,
-            friction: 10,
-          }).start();
-          lastOffset.current = ACTION_WIDTH;
-          hapticsService.medium();
-          if (onSwipeRight) onSwipeRight();
-        } else if (currentValue < -SWIPE_THRESHOLD && rightAction) {
-          // Swipe left - show right action
-          Animated.spring(translateX, {
-            toValue: -ACTION_WIDTH,
+          }).start(() => {
+            leftAction.onPress();
+            // Reset after delay
+            setTimeout(() => {
+              translateX.setValue(0);
+              actionIconScale.setValue(0);
+            }, 300);
+          });
+        }
+        else if (rightAction && dx < -TRIGGER_THRESHOLD) {
+          // Trigger Right Action
+          hapticsService.warning();
+
+          Animated.timing(translateX, {
+            toValue: -SCREEN_WIDTH,
+            duration: 200,
             useNativeDriver: true,
-            tension: 100,
-            friction: 10,
-          }).start();
-          lastOffset.current = -ACTION_WIDTH;
-          hapticsService.medium();
-          if (onSwipeLeft) onSwipeLeft();
-        } else {
-          // Reset position
+          }).start(() => {
+            rightAction.onPress();
+            // Reset after delay
+            setTimeout(() => {
+              translateX.setValue(0);
+              actionIconScale.setValue(0);
+            }, 300);
+          });
+        }
+        else {
+          // Snap back if incorrect threshold
           Animated.spring(translateX, {
             toValue: 0,
             useNativeDriver: true,
-            tension: 100,
-            friction: 10,
           }).start();
-          lastOffset.current = 0;
         }
       },
     })
   ).current;
 
-  const closeRow = () => {
-    Animated.spring(translateX, {
-      toValue: 0,
-      useNativeDriver: true,
-      tension: 100,
-      friction: 10,
-    }).start();
-    lastOffset.current = 0;
-  };
-
-  const handleActionPress = (action: SwipeAction) => {
-    hapticsService.medium();
-    action.onPress();
-    closeRow();
-  };
-
-  const leftActionOpacity = translateX.interpolate({
-    inputRange: [0, ACTION_WIDTH / 2, ACTION_WIDTH],
-    outputRange: [0, 0.5, 1],
+  // Interpolate opacity for the background layers
+  const leftOpacity = translateX.interpolate({
+    inputRange: [0, 50],
+    outputRange: [0, 1],
     extrapolate: 'clamp',
   });
 
-  const rightActionOpacity = translateX.interpolate({
-    inputRange: [-ACTION_WIDTH, -ACTION_WIDTH / 2, 0],
-    outputRange: [1, 0.5, 0],
+  const rightOpacity = translateX.interpolate({
+    inputRange: [-50, 0],
+    outputRange: [1, 0],
     extrapolate: 'clamp',
   });
 
   return (
-    <View style={styles.container}>
-      {/* Left Action (shown on swipe right) */}
-      {leftAction && (
-        <Animated.View
-          style={[
-            styles.actionContainer,
-            styles.leftAction,
-            { backgroundColor: leftAction.backgroundColor, opacity: leftActionOpacity },
-          ]}
-        >
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => handleActionPress(leftAction)}
-          >
-            <Ionicons name={leftAction.icon as any} size={24} color={leftAction.color} />
-            {leftAction.label && (
-              <Text style={[styles.actionLabel, { color: leftAction.color }]}>
-                {leftAction.label}
-              </Text>
-            )}
-          </TouchableOpacity>
+    <View style={[styles.container, style]}>
+      {/* Background Layer */}
+      <View style={styles.backgroundContainer}>
+        {/* Left Action Background (Positive) */}
+        <Animated.View style={[
+          styles.actionBackground,
+          styles.leftBackground,
+          { opacity: leftOpacity }
+        ]}>
+          {leftAction && (
+            <LinearGradient
+              colors={[...leftAction.gradient]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.gradient}
+            >
+              <Animated.View style={[styles.iconContainer, { transform: [{ scale: actionIconScale }] }]}>
+                <Ionicons name={leftAction.icon as any} size={32} color={leftAction.color} />
+              </Animated.View>
+            </LinearGradient>
+          )}
         </Animated.View>
-      )}
 
-      {/* Right Action (shown on swipe left) */}
-      {rightAction && (
-        <Animated.View
-          style={[
-            styles.actionContainer,
-            styles.rightAction,
-            { backgroundColor: rightAction.backgroundColor, opacity: rightActionOpacity },
-          ]}
-        >
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => handleActionPress(rightAction)}
-          >
-            <Ionicons name={rightAction.icon as any} size={24} color={rightAction.color} />
-            {rightAction.label && (
-              <Text style={[styles.actionLabel, { color: rightAction.color }]}>
-                {rightAction.label}
-              </Text>
-            )}
-          </TouchableOpacity>
+        {/* Right Action Background (Negative) */}
+        <Animated.View style={[
+          styles.actionBackground,
+          styles.rightBackground,
+          { opacity: rightOpacity }
+        ]}>
+          {rightAction && (
+            <LinearGradient
+              colors={[...rightAction.gradient]}
+              start={{ x: 1, y: 0 }}
+              end={{ x: 0, y: 0 }}
+              style={styles.gradient}
+            >
+              <Animated.View style={[styles.iconContainer, { transform: [{ scale: actionIconScale }] }]}>
+                <Ionicons name={rightAction.icon as any} size={32} color={rightAction.color} />
+              </Animated.View>
+            </LinearGradient>
+          )}
         </Animated.View>
-      )}
+      </View>
 
-      {/* Main Content */}
+      {/* Content */}
       <Animated.View
-        style={[
-          styles.content,
-          { transform: [{ translateX }] },
-        ]}
+        style={[styles.content, { transform: [{ translateX }] }]}
         {...panResponder.panHandlers}
       >
         {children}
@@ -216,36 +189,40 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
   },
-  content: {
-    backgroundColor: 'transparent',
-    zIndex: 1,
+  backgroundContainer: {
+    ...StyleSheet.absoluteFillObject,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  actionContainer: {
+  actionBackground: {
     position: 'absolute',
     top: 0,
     bottom: 0,
-    width: ACTION_WIDTH,
+    width: '100%',
     justifyContent: 'center',
-    alignItems: 'center',
   },
-  leftAction: {
+  leftBackground: {
     left: 0,
-    borderTopLeftRadius: 12,
-    borderBottomLeftRadius: 12,
+    alignItems: 'flex-start',
   },
-  rightAction: {
+  rightBackground: {
     right: 0,
-    borderTopRightRadius: 12,
-    borderBottomRightRadius: 12,
+    alignItems: 'flex-end',
   },
-  actionButton: {
+  gradient: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'center',
+    paddingHorizontal: 30,
+  },
+  iconContainer: {
+    width: 40,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 8,
   },
-  actionLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    marginTop: 4,
+  content: {
+    backgroundColor: 'transparent',
   },
 });

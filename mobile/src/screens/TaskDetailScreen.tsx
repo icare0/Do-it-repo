@@ -213,7 +213,7 @@ export default function TaskDetailScreen() {
           </Group>
 
           {/* Location Map */}
-          {task.location && (
+          {task.location && task.location.latitude && task.location.longitude && (
             <Group title="LIEU">
               <View style={styles.mapContainer}>
                 <MapView

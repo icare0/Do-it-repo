@@ -19,13 +19,16 @@ import { getTheme } from '@/theme';
 
 const { width } = Dimensions.get('window');
 
+import { SwipeableRow } from './ui/SwipeableRow';
+
 interface PremiumTaskItemProps {
     task: Task;
     onPress: (task: Task) => void;
     onToggle: (taskId: string) => void;
+    onDelete?: (taskId: string) => void;
 }
 
-export const PremiumTaskItem: React.FC<PremiumTaskItemProps> = ({ task, onPress, onToggle }) => {
+export const PremiumTaskItem: React.FC<PremiumTaskItemProps> = ({ task, onPress, onToggle, onDelete }) => {
     const { colorScheme } = useThemeStore();
     const theme = getTheme(colorScheme);
 
@@ -82,93 +85,111 @@ export const PremiumTaskItem: React.FC<PremiumTaskItemProps> = ({ task, onPress,
 
     return (
         <Animated.View style={[styles.container, animatedStyle]}>
-            <TouchableOpacity
-                activeOpacity={1}
-                onPress={handlePress}
-                style={[
-                    styles.card,
-                    {
-                        backgroundColor: theme.colors.surface,
-                        shadowColor: '#000',
-                    }
-                ]}
+            <SwipeableRow
+                style={{ borderRadius: 20, overflow: 'hidden' }}
+                leftAction={{
+                    icon: task.completed ? 'arrow-undo' : 'checkmark-circle',
+                    color: '#fff',
+                    gradient: task.completed ? ['#F59E0B', '#FCD34D'] : ['#10B981', '#6EE7B7'],
+                    onPress: () => onToggle(task.id),
+                    label: task.completed ? 'À faire' : 'Terminer',
+                }}
+                rightAction={onDelete ? {
+                    icon: 'trash',
+                    color: '#fff',
+                    gradient: ['#EF4444', '#F87171'],
+                    onPress: () => onDelete(task.id),
+                    label: 'Supprimer',
+                } : undefined}
             >
-                {/* Left Accent Strip */}
-                <View style={[styles.accentStrip, { backgroundColor: accentColor }]} />
+                <TouchableOpacity
+                    activeOpacity={1}
+                    onPress={handlePress}
+                    style={[
+                        styles.card,
+                        {
+                            backgroundColor: theme.colors.surface,
+                            shadowColor: '#000',
+                        }
+                    ]}
+                >
+                    {/* Left Accent Strip */}
+                    <View style={[styles.accentStrip, { backgroundColor: accentColor }]} />
 
-                <View style={styles.content}>
-                    {/* Checkbox Area */}
-                    <TouchableOpacity
-                        onPress={handleToggle}
-                        style={[styles.checkboxContainer, { borderColor: theme.colors.border }]}
-                    >
-                        <Animated.View style={[styles.checkboxFill, { backgroundColor: accentColor }, checkmarkStyle]}>
-                            <Ionicons name="checkmark" size={14} color="#FFF" />
-                        </Animated.View>
-                    </TouchableOpacity>
+                    <View style={styles.content}>
+                        {/* Checkbox Area */}
+                        <TouchableOpacity
+                            onPress={handleToggle}
+                            style={[styles.checkboxContainer, { borderColor: theme.colors.border }]}
+                        >
+                            <Animated.View style={[styles.checkboxFill, { backgroundColor: accentColor }, checkmarkStyle]}>
+                                <Ionicons name="checkmark" size={14} color="#FFF" />
+                            </Animated.View>
+                        </TouchableOpacity>
 
-                    {/* Main Content */}
-                    <View style={styles.mainInfo}>
-                        <View style={styles.headerRow}>
-                            <Animated.Text
-                                style={[
-                                    styles.title,
-                                    { color: theme.colors.text },
-                                    textStyle
-                                ]}
-                                numberOfLines={1}
-                            >
-                                {task.title}
-                            </Animated.Text>
-                            {task.category && (
-                                <View style={[styles.categoryBadge, { backgroundColor: theme.colors.surface }]}>
-                                    <Text style={[styles.categoryText, { color: theme.colors.textSecondary }]}>
-                                        {task.category}
-                                    </Text>
-                                </View>
-                            )}
+                        {/* Main Content */}
+                        <View style={styles.mainInfo}>
+                            <View style={styles.headerRow}>
+                                <Animated.Text
+                                    style={[
+                                        styles.title,
+                                        { color: theme.colors.text },
+                                        textStyle
+                                    ]}
+                                    numberOfLines={1}
+                                >
+                                    {task.title}
+                                </Animated.Text>
+                                {task.category && (
+                                    <View style={[styles.categoryBadge, { backgroundColor: theme.colors.surface }]}>
+                                        <Text style={[styles.categoryText, { color: theme.colors.textSecondary }]}>
+                                            {task.category}
+                                        </Text>
+                                    </View>
+                                )}
+                            </View>
+
+                            {/* Metadata Row */}
+                            <View style={styles.metaRow}>
+                                {task.startDate && (
+                                    <View style={styles.metaItem}>
+                                        <Ionicons name="calendar-outline" size={14} color={theme.colors.textSecondary} />
+                                        <Text style={[styles.metaText, { color: theme.colors.textSecondary }]}>
+                                            {format(new Date(task.startDate), 'd MMM', { locale: fr })}
+                                        </Text>
+                                    </View>
+                                )}
+
+                                {task.location && (
+                                    <View style={styles.metaItem}>
+                                        <Ionicons name="location-outline" size={14} color={theme.colors.textSecondary} />
+                                        <Text style={[styles.metaText, { color: theme.colors.textSecondary }]}>
+                                            {task.location.name}
+                                        </Text>
+                                    </View>
+                                )}
+
+                                {isShopping && (
+                                    <View style={styles.metaItem}>
+                                        <Ionicons name="cart-outline" size={14} color={theme.colors.primary} />
+                                        <Text style={[styles.metaText, { color: theme.colors.primary, fontWeight: '600' }]}>
+                                            Courses
+                                        </Text>
+                                    </View>
+                                )}
+                            </View>
                         </View>
 
-                        {/* Metadata Row */}
-                        <View style={styles.metaRow}>
-                            {task.startDate && (
-                                <View style={styles.metaItem}>
-                                    <Ionicons name="calendar-outline" size={14} color={theme.colors.textSecondary} />
-                                    <Text style={[styles.metaText, { color: theme.colors.textSecondary }]}>
-                                        {format(new Date(task.startDate), 'd MMM', { locale: fr })}
-                                    </Text>
-                                </View>
-                            )}
-
-                            {task.location && (
-                                <View style={styles.metaItem}>
-                                    <Ionicons name="location-outline" size={14} color={theme.colors.textSecondary} />
-                                    <Text style={[styles.metaText, { color: theme.colors.textSecondary }]}>
-                                        {task.location.name}
-                                    </Text>
-                                </View>
-                            )}
-
-                            {isShopping && (
-                                <View style={styles.metaItem}>
-                                    <Ionicons name="cart-outline" size={14} color={theme.colors.primary} />
-                                    <Text style={[styles.metaText, { color: theme.colors.primary, fontWeight: '600' }]}>
-                                        Courses
-                                    </Text>
-                                </View>
-                            )}
-                        </View>
+                        {/* Chevron */}
+                        <Ionicons
+                            name="chevron-forward"
+                            size={20}
+                            color={theme.colors.textSecondary}
+                            style={{ opacity: 0.3 }}
+                        />
                     </View>
-
-                    {/* Chevron */}
-                    <Ionicons
-                        name="chevron-forward"
-                        size={20}
-                        color={theme.colors.textSecondary}
-                        style={{ opacity: 0.3 }}
-                    />
-                </View>
-            </TouchableOpacity>
+                </TouchableOpacity>
+            </SwipeableRow>
         </Animated.View>
     );
 };

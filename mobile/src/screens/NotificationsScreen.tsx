@@ -82,6 +82,13 @@ export default function NotificationsScreen() {
   } = useNotificationStore();
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState<'all' | 'unread' | 'history'>('all');
+
+  const filteredNotifications = notifications.filter((n) => {
+    if (activeTab === 'unread') return !n.read;
+    if (activeTab === 'history') return n.read;
+    return true;
+  });
 
   useEffect(() => {
     loadFromStorage().then(() => setIsLoading(false));
@@ -264,18 +271,42 @@ export default function NotificationsScreen() {
         </View>
       </View>
 
+      <View style={styles.tabContainer}>
+        {(['all', 'unread', 'history'] as const).map((tab) => (
+          <TouchableOpacity
+            key={tab}
+            style={[
+              styles.tab,
+              activeTab === tab && { backgroundColor: theme.colors.primary + '20' },
+              activeTab === tab && { borderColor: theme.colors.primary },
+            ]}
+            onPress={() => setActiveTab(tab)}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                { color: activeTab === tab ? theme.colors.primary : theme.colors.textSecondary },
+                activeTab === tab && styles.tabTextActive,
+              ]}
+            >
+              {tab === 'all' ? 'Toutes' : tab === 'unread' ? 'Non lues' : 'Historique'}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       {isLoading ? (
         <View style={styles.loadingContainer}>
           <SkeletonList count={5} component={SkeletonNotification} />
         </View>
       ) : (
         <FlatList
-          data={notifications}
+          data={filteredNotifications}
           keyExtractor={(item) => item.id}
           renderItem={renderNotification}
           contentContainerStyle={[
             styles.listContent,
-            notifications.length === 0 && styles.emptyList,
+            filteredNotifications.length === 0 && styles.emptyList,
           ]}
           ListEmptyComponent={renderEmpty}
           refreshControl={
@@ -400,5 +431,26 @@ const styles = StyleSheet.create({
   emptySubtitle: {
     fontSize: 14,
     marginTop: 8,
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    gap: 8,
+  },
+  tab: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    backgroundColor: 'transparent',
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  tabTextActive: {
+    fontWeight: '700',
   },
 });

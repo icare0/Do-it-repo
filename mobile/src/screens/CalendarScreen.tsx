@@ -167,37 +167,37 @@ export default function CalendarScreen() {
 
   const calendarTheme = colorScheme === 'dark'
     ? {
-        backgroundColor: '#171717',
-        calendarBackground: '#171717',
-        textSectionTitleColor: '#A3A3A3',
-        selectedDayBackgroundColor: '#60A5FA',
-        selectedDayTextColor: '#ffffff',
-        todayTextColor: '#60A5FA',
-        dayTextColor: '#FAFAFA',
-        textDisabledColor: '#737373',
-        monthTextColor: '#FAFAFA',
-        arrowColor: '#60A5FA',
-        disabledArrowColor: '#737373',
-        textDayFontWeight: '400' as const,
-        textMonthFontWeight: '600' as const,
-        textDayHeaderFontWeight: '500' as const,
-      }
+      backgroundColor: '#171717',
+      calendarBackground: '#171717',
+      textSectionTitleColor: '#A3A3A3',
+      selectedDayBackgroundColor: '#60A5FA',
+      selectedDayTextColor: '#ffffff',
+      todayTextColor: '#60A5FA',
+      dayTextColor: '#FAFAFA',
+      textDisabledColor: '#737373',
+      monthTextColor: '#FAFAFA',
+      arrowColor: '#60A5FA',
+      disabledArrowColor: '#737373',
+      textDayFontWeight: '400' as const,
+      textMonthFontWeight: '600' as const,
+      textDayHeaderFontWeight: '500' as const,
+    }
     : {
-        backgroundColor: '#FFFFFF',
-        calendarBackground: '#FFFFFF',
-        textSectionTitleColor: '#737373',
-        selectedDayBackgroundColor: '#3B82F6',
-        selectedDayTextColor: '#ffffff',
-        todayTextColor: '#3B82F6',
-        dayTextColor: '#171717',
-        textDisabledColor: '#A3A3A3',
-        monthTextColor: '#171717',
-        arrowColor: '#3B82F6',
-        disabledArrowColor: '#A3A3A3',
-        textDayFontWeight: '400' as const,
-        textMonthFontWeight: '600' as const,
-        textDayHeaderFontWeight: '500' as const,
-      };
+      backgroundColor: '#FFFFFF',
+      calendarBackground: '#FFFFFF',
+      textSectionTitleColor: '#737373',
+      selectedDayBackgroundColor: '#3B82F6',
+      selectedDayTextColor: '#ffffff',
+      todayTextColor: '#3B82F6',
+      dayTextColor: '#171717',
+      textDisabledColor: '#A3A3A3',
+      monthTextColor: '#171717',
+      arrowColor: '#3B82F6',
+      disabledArrowColor: '#A3A3A3',
+      textDayFontWeight: '400' as const,
+      textMonthFontWeight: '600' as const,
+      textDayHeaderFontWeight: '500' as const,
+    };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
@@ -205,16 +205,7 @@ export default function CalendarScreen() {
         <Text style={[styles.title, { color: theme.colors.text }]}>Calendrier</Text>
       </View>
 
-      <ScrollView
-        contentContainerStyle={styles.content}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor={theme.colors.primary}
-          />
-        }
-      >
+      <View style={styles.calendarWrapper}>
         {/* Calendar */}
         <View
           style={[
@@ -253,8 +244,21 @@ export default function CalendarScreen() {
             <Text style={[styles.legendText, { color: theme.colors.textSecondary }]}>Prioritaire</Text>
           </View>
         </View>
+      </View>
 
-        {/* Selected Day Details */}
+      {/* Scrollable Selected Day Details */}
+      <ScrollView
+        style={styles.detailsScrollView}
+        contentContainerStyle={styles.detailsScrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={theme.colors.primary}
+          />
+        }
+      >
         <View style={styles.dayDetails}>
           <Text style={[styles.dayTitle, { color: theme.colors.text }]}>
             {format(new Date(selectedDate), 'EEEE d MMMM', { locale: fr })}
@@ -362,33 +366,6 @@ export default function CalendarScreen() {
             </>
           )}
         </View>
-
-        {/* Summary Card */}
-        <View style={styles.summaryContainer}>
-          <Card variant="flat" padding="lg" borderRadiusSize="lg" style={styles.summaryCard}>
-            <View style={styles.summaryRow}>
-              <View style={styles.summaryItem}>
-                <Ionicons name="checkmark-circle" size={20} color={theme.colors.primary} />
-                <Text style={[styles.summaryValue, { color: theme.colors.text }]}>
-                  {tasks.filter((t) => t.startDate).length}
-                </Text>
-                <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>
-                  Tâches
-                </Text>
-              </View>
-              <View style={[styles.summaryDivider, { backgroundColor: theme.colors.border }]} />
-              <View style={styles.summaryItem}>
-                <Ionicons name="calendar" size={20} color={theme.colors.secondary} />
-                <Text style={[styles.summaryValue, { color: theme.colors.text }]}>
-                  {calendarEvents.length}
-                </Text>
-                <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>
-                  Événements
-                </Text>
-              </View>
-            </View>
-          </Card>
-        </View>
       </ScrollView>
 
       {/* Floating Action Button */}
@@ -418,7 +395,16 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: -0.5,
   },
-  content: { padding: spacing.xl, paddingTop: 0, paddingBottom: layout.scrollContentPaddingBottom + spacing.md },
+  calendarWrapper: {
+    paddingHorizontal: spacing.xl,
+  },
+  detailsScrollView: {
+    flex: 1,
+  },
+  detailsScrollContent: {
+    paddingHorizontal: spacing.xl,
+    paddingBottom: layout.fabBottomOffset + spacing.md,
+  },
   calendarContainer: {
     borderRadius: 16,
     overflow: 'hidden',
@@ -433,7 +419,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 20,
     marginTop: 16,
-    marginBottom: 24,
+    marginBottom: 16, // Reduced margin since it's now followed by scrollview
   },
   legendItem: {
     flexDirection: 'row',
@@ -449,7 +435,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   dayDetails: {
-    marginBottom: 24,
+    marginTop: 8, // Add some top margin for the list
   },
   dayTitle: {
     fontSize: 18,
@@ -512,34 +498,6 @@ const styles = StyleSheet.create({
   },
   locationText: {
     fontSize: 12,
-  },
-  summaryContainer: {
-    marginTop: 16,
-  },
-  summaryCard: {
-    overflow: 'hidden',
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  summaryItem: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 8,
-  },
-  summaryDivider: {
-    width: 1,
-    height: 48,
-    marginHorizontal: 12,
-  },
-  summaryValue: {
-    fontSize: 24,
-    fontWeight: '700',
-  },
-  summaryLabel: {
-    fontSize: 12,
-    fontWeight: '500',
   },
   fabContainer: {
     position: 'absolute',

@@ -16,3 +16,15 @@ export const validate = (validations: ValidationChain[]) => {
     });
   };
 };
+
+export const validateRequest = (req: Request, res: Response, next: NextFunction) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    res.status(400).json({
+      message: 'Validation failed',
+      errors: errors.array(),
+    });
+    return;
+  }
+  next();
+};

@@ -2,6 +2,7 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNotificationStore } from '../store/notificationStore';
 
 const NOTIFICATIONS_ENABLED_KEY = '@doit_notifications_enabled';
 
@@ -13,12 +14,15 @@ const NOTIFICATIONS_ENABLED_KEY = '@doit_notifications_enabled';
 
 // Configuration du handler de notifications
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    priority: Notifications.AndroidNotificationPriority.HIGH,
-  }),
+  handleNotification: async () => {
+    const settings = useNotificationStore.getState().settings;
+    return {
+      shouldShowAlert: settings.enabled,
+      shouldPlaySound: settings.sound,
+      shouldSetBadge: settings.badge,
+      priority: Notifications.AndroidNotificationPriority.HIGH,
+    };
+  },
 });
 
 interface TaskNotification {
@@ -131,15 +135,40 @@ class NotificationService {
     // Quand une notification est reçue (app en foreground)
     Notifications.addNotificationReceivedListener((notification) => {
       console.log('🔔 [NotificationService] 📬 Notification reçue:', notification.request.content.title);
+
+      const content = notification.request.content;
+      useNotificationStore.getState().addNotification({
+        id: notification.request.identifier,
+        type: (content.data?.type as any) || 'system',
+        title: content.title || 'Notification',
+        body: content.body || '',
+        data: content.data,
+        taskId: content.data?.taskId,
+      });
     });
 
     // Quand l'utilisateur tape sur une notification
     Notifications.addNotificationResponseReceivedListener((response) => {
       console.log('🔔 [NotificationService] 👆 Notification tapée:', response.notification.request.content.title);
-      const taskId = response.notification.request.content.data.taskId;
+
+      // S'assurer que la notification est dans l'historique (au cas où reçue en background)
+      const notification = response.notification;
+      const content = notification.request.content;
+
+      useNotificationStore.getState().addNotification({
+        id: notification.request.identifier,
+        type: (content.data?.type as any) || 'system',
+        title: content.title || 'Notification',
+        body: content.body || '',
+        data: content.data,
+        taskId: content.data?.taskId,
+      });
+
+      const taskId = content.data?.taskId;
       if (taskId) {
         console.log('🔔 [NotificationService] 🎯 Task ID:', taskId);
-        // TODO: Navigation vers la tâche
+        // La navigation sera gérée par le RootNavigator ou via un event global
+        // Pour l'instant on stocke juste l'info
       }
     });
 
@@ -156,14 +185,26 @@ class NotificationService {
     minutesBefore?: number;
   }): Promise<string | null> {
     try {
+      const settings = useNotificationStore.getState().settings;
+
       if (!this.hasPermissions) {
         console.log('🔔 [NotificationService] ⚠️ Pas de permissions - notification ignorée');
         return null;
       }
 
+      if (!settings.enabled) {
+        console.log('🔔 [NotificationService] 🔕 Notifications globalement désactivées');
+        return null;
+      }
+
+      if (!settings.taskReminders) {
+        console.log('🔔 [NotificationService] 🔕 Rappels de tâches désactivés dans les paramètres');
+        return null;
+      }
+
       const now = new Date();
       const taskDate = new Date(task.startDate);
-      const minutesBefore = task.minutesBefore || 15;
+      const minutesBefore = task.minutesBefore || settings.reminderMinutes || 15;
 
       // Calculer le moment de la notification
       const notificationTime = new Date(taskDate.getTime() - minutesBefore * 60000);
@@ -190,7 +231,8 @@ class NotificationService {
             taskId: task.id,
             type: 'task_reminder'
           },
-          sound: true,
+          sound: settings.sound,
+          vibrate: settings.vibration ? [0, 250, 250, 250] : [],
           priority: Notifications.AndroidNotificationPriority.HIGH,
         },
         trigger: {
@@ -345,4 +387,3 @@ class NotificationService {
 }
 
 export const notificationService = new NotificationService();
-

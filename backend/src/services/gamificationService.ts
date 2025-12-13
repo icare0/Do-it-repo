@@ -1,4 +1,4 @@
-import UserStats from '../models/UserStats';
+import UserStats, { IUserStats } from '../models/UserStats';
 import Task from '../models/Task';
 import notificationService from './notificationService';
 import logger from '../config/logger';
@@ -13,7 +13,7 @@ class GamificationService {
   /**
    * Initialise les stats d'un nouvel utilisateur
    */
-  async initializeUserStats(userId: string): Promise<any> {
+  async initializeUserStats(userId: string): Promise<IUserStats> {
     try {
       const existingStats = await UserStats.findOne({ userId });
       if (existingStats) {
@@ -39,7 +39,7 @@ class GamificationService {
    */
   async onTaskCompleted(userId: string, task: any): Promise<void> {
     try {
-      let stats = await UserStats.findOne({ userId });
+      let stats: any = await UserStats.findOne({ userId });
       if (!stats) {
         stats = await this.initializeUserStats(userId);
       }
@@ -202,7 +202,7 @@ class GamificationService {
    */
   async getUserStats(userId: string): Promise<any> {
     try {
-      let stats = await UserStats.findOne({ userId });
+      let stats: any = await UserStats.findOne({ userId });
       if (!stats) {
         stats = await this.initializeUserStats(userId);
       }

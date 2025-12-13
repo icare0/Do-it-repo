@@ -3,13 +3,16 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, Dimensions } from 'react-native';
+
 
 import { useAuthStore } from '@/store/authStore';
 import { useOnboardingStore } from '@/store/onboardingStore';
 import { authService } from '@/services/authService';
 import { useThemeStore } from '@/store/themeStore';
 import { getTheme } from '@/theme';
+
+const { width } = Dimensions.get('window');
 
 // Screens
 import OnboardingScreen from '@/screens/OnboardingScreen';
@@ -51,6 +54,12 @@ function TabNavigator() {
           paddingTop: 0,
           paddingBottom: 0,
           position: 'absolute',
+          left: 0,
+          bottom: 0,
+          width: width,
+
+          elevation: 0,
+          shadowOpacity: 0,
         },
         tabBarItemStyle: {
           paddingVertical: 6,
@@ -126,15 +135,42 @@ function TabNavigator() {
   );
 }
 
+import * as QuickActions from 'expo-quick-actions';
+import { useQuickAction } from 'expo-quick-actions/hooks';
+import { createNavigationContainerRef } from '@react-navigation/native';
+
+export const navigationRef = createNavigationContainerRef<RootStackParamList>();
+
 export default function RootNavigator() {
   const { isAuthenticated, isLoading: authLoading } = useAuthStore();
   const { hasCompletedOnboarding, isLoading: onboardingLoading, checkOnboardingStatus } = useOnboardingStore();
   const { colorScheme } = useThemeStore();
   const theme = getTheme(colorScheme);
 
+  const action = useQuickAction();
+
   useEffect(() => {
     checkOnboardingStatus();
   }, []);
+
+  useEffect(() => {
+    QuickActions.setItems([
+      {
+        id: 'quick_add',
+        title: 'Nouvelle Tâche',
+        subtitle: 'Ajouter rapidement',
+        icon: 'compose',
+        params: { href: 'quick-add' },
+      },
+    ]);
+  }, []);
+
+  useEffect(() => {
+    if (action?.params?.href === 'quick-add' && isAuthenticated && navigationRef.isReady()) {
+      // @ts-ignore
+      navigationRef.navigate('QuickAdd');
+    }
+  }, [action, isAuthenticated]);
 
   if (authLoading || onboardingLoading) {
     return (
@@ -145,7 +181,7 @@ export default function RootNavigator() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <Stack.Navigator
         screenOptions={{
           headerShown: false,

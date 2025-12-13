@@ -128,8 +128,8 @@ export default function QuickAddScreen() {
 
       taskData.title = finalTitle;
 
-      // Use enriched location if available
-      if (enrichedLocation && !taskData.location) {
+      // Use enriched location if available and valid
+      if (enrichedLocation && !taskData.location && enrichedLocation.latitude && enrichedLocation.longitude) {
         taskData.location = enrichedLocation;
       }
 
@@ -178,6 +178,7 @@ export default function QuickAddScreen() {
 
       // Add to sync queue
       await syncService.addToSyncQueue('task', newTask.id, 'create', {
+        id: newTask.id,
         userId: user!.id,
         title: taskData.title,
         priority: taskData.priority || 'medium',
@@ -311,8 +312,8 @@ export default function QuickAddScreen() {
                   <Ionicons name="repeat-outline" size={16} color={theme.colors.primary} />
                   <Text style={[styles.parseLabel, { color: theme.colors.text }]}>
                     {parsedTask.recurringPattern.frequency === 'daily' ? 'Quotidien' :
-                     parsedTask.recurringPattern.frequency === 'weekly' ? 'Hebdomadaire' :
-                     parsedTask.recurringPattern.frequency === 'monthly' ? 'Mensuel' : 'Annuel'}
+                      parsedTask.recurringPattern.frequency === 'weekly' ? 'Hebdomadaire' :
+                        parsedTask.recurringPattern.frequency === 'monthly' ? 'Mensuel' : 'Annuel'}
                   </Text>
                 </View>
               )}
