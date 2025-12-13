@@ -1,7 +1,6 @@
 package com.doit.widgets
 
 import android.content.Context
-import android.content.SharedPreferences
 import com.google.gson.Gson
 import com.google.gson.annotations.SerializedName
 
@@ -36,17 +35,13 @@ object WidgetDataProvider {
 
     private fun <T> getData(context: Context, key: String, classOfT: Class<T>): T? {
         return try {
-            val prefs = getSharedPreferences(context)
+            val prefs = context.getSharedPreferences(SHARED_PREFS_NAME, Context.MODE_PRIVATE)
             val jsonString = prefs.getString(key, null) ?: return null
             gson.fromJson(jsonString, classOfT)
         } catch (e: Exception) {
             e.printStackTrace()
             null
         }
-    }
-
-    private fun getSharedPreferences(context: Context): SharedPreferences {
-        return context.getSharedPreferences(SHARED_PREFS_NAME, Context.MODE_PRIVATE)
     }
 }
 
@@ -59,10 +54,7 @@ data class WidgetTodayData(
     val progressPercentage: Int,
     val nextTask: WidgetTaskData?,
     val lastUpdated: String
-) {
-    val progressValue: Float
-        get() = if (totalCount > 0) completedCount.toFloat() / totalCount.toFloat() else 0f
-}
+)
 
 data class WidgetTaskData(
     val id: String,
@@ -86,19 +78,25 @@ data class WidgetTaskData(
         val longitude: Double? = null
     )
 
-    val formattedTime: String?
-        get() {
-            if (startDate == null) return null
-            return try {
-                // Parse ISO 8601 date and format to HH:mm
-                val instant = java.time.Instant.parse(startDate)
-                val zonedDateTime = instant.atZone(java.time.ZoneId.systemDefault())
-                val formatter = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
-                zonedDateTime.format(formatter)
-            } catch (e: Exception) {
-                null
-            }
+    fun getFormattedTime(): String? {
+        if (startDate == null) return null
+        return try {
+            val instant = java.time.Instant.parse(startDate)
+            val zonedDateTime = instant.atZone(java.time.ZoneId.systemDefault())
+            val formatter = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
+            zonedDateTime.format(formatter)
+        } catch (e: Exception) {
+            null
         }
+    }
+
+    fun getPriorityColor(): Int {
+        return when (priority) {
+            Priority.HIGH -> 0xFFEF4444.toInt()
+            Priority.MEDIUM -> 0xFFF59E0B.toInt()
+            Priority.LOW -> 0xFF10B981.toInt()
+        }
+    }
 }
 
 data class WidgetStatsData(

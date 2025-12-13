@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Today Widget - Medium (4x2) -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="@drawable/widget_background">
+
+    <!-- Header with Progress Dots -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Aujourd'hui"
+            android:textSize="14sp"
+            android:textColor="#1F2937"
+            android:fontFamily="sans-serif-medium" />
+
+        <!-- Progress Indicator -->
+        <TextView
+            android:id="@+id/progress_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="0/0"
+            android:textSize="12sp"
+            android:textColor="#6B7280"
+            android:fontFamily="sans-serif-medium" />
+
+    </LinearLayout>
+
+    <!-- Tasks List -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="12dp">
+
+        <ListView
+            android:id="@+id/tasks_list"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:divider="@null"
+            android:dividerHeight="0dp" />
+
+        <TextView
+            android:id="@+id/empty_view"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:text="Aucune tâche"
+            android:textSize="12sp"
+            android:textColor="#6B7280" />
+
+    </FrameLayout>
+
+    <!-- Footer -->
+    <TextView
+        android:id="@+id/completion_text"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="0/0 complétées"
+        android:textSize="11sp"
+        android:textColor="#6B7280"
+        android:fontFamily="sans-serif-medium"
+        android:layout_marginTop="8dp" />
+
+</LinearLayout>

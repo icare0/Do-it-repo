@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
-    android:minWidth="120dp"
-    android:minHeight="120dp"
+    android:minWidth="110dp"
+    android:minHeight="110dp"
     android:targetCellWidth="2"
     android:targetCellHeight="2"
-    android:updatePeriodMillis="900000"
-    android:description="@string/next_task_widget_description"
-    android:previewImage="@drawable/widget_preview_next_task"
-    android:resizeMode="none"
+    android:updatePeriodMillis="1800000"
+    android:initialLayout="@layout/widget_loading"
+    android:configure="com.doit.MainActivity"
+    android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
-    android:initialLayout="@layout/widget_loading">
-</appwidget-provider>
+    android:description="@string/next_task_widget_description"
+    android:previewImage="@drawable/widget_background"
+    android:previewLayout="@layout/widget_next_task" />

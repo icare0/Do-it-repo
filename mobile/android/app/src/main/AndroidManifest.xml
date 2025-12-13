@@ -40,33 +40,39 @@
     <activity android:name="com.facebook.react.devsupport.DevSettingsActivity" android:exported="false"/>
 
     <!-- Widget Receivers -->
-    <receiver android:name="com.doit.widgets.TodayWidgetReceiver" android:exported="true">
+    <receiver android:name="com.doit.widgets.TodayWidgetProvider" android:exported="true">
       <intent-filter>
         <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
       </intent-filter>
       <meta-data android:name="android.appwidget.provider" android:resource="@xml/today_widget_info"/>
     </receiver>
 
-    <receiver android:name="com.doit.widgets.NextTaskWidgetReceiver" android:exported="true">
+    <receiver android:name="com.doit.widgets.NextTaskWidgetProvider" android:exported="true">
       <intent-filter>
         <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
       </intent-filter>
       <meta-data android:name="android.appwidget.provider" android:resource="@xml/next_task_widget_info"/>
     </receiver>
 
-    <receiver android:name="com.doit.widgets.StatsWidgetReceiver" android:exported="true">
+    <receiver android:name="com.doit.widgets.StatsWidgetProvider" android:exported="true">
       <intent-filter>
         <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
       </intent-filter>
       <meta-data android:name="android.appwidget.provider" android:resource="@xml/stats_widget_info"/>
     </receiver>
 
-    <receiver android:name="com.doit.widgets.SmartSuggestionsWidgetReceiver" android:exported="true">
+    <receiver android:name="com.doit.widgets.SuggestionsWidgetProvider" android:exported="true">
       <intent-filter>
         <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
       </intent-filter>
-      <meta-data android:name="android.appwidget.provider" android:resource="@xml/smart_suggestions_widget_info"/>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/suggestions_widget_info"/>
     </receiver>
+
+    <!-- Widget Service for ListView -->
+    <service
+        android:name="com.doit.widgets.TodayWidgetService"
+        android:permission="android.permission.BIND_REMOTEVIEWS"
+        android:exported="false" />
 
     <uses-library android:name="org.apache.http.legacy" android:required="false"/>
   </application>
