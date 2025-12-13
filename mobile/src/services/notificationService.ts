@@ -183,6 +183,8 @@ class NotificationService {
     title: string;
     startDate: Date;
     minutesBefore?: number;
+    description?: string;
+    subtasks?: Array<{ title: string; completed: boolean }>;
   }): Promise<string | null> {
     try {
       const settings = useNotificationStore.getState().settings;
@@ -215,6 +217,24 @@ class NotificationService {
         return null;
       }
 
+      // Construire le corps enrichi de la notification
+      let body = task.title;
+
+      // Ajouter les sous-tâches si présentes
+      if (task.subtasks && task.subtasks.length > 0) {
+        const incompleteSubtasks = task.subtasks.filter(st => !st.completed);
+        if (incompleteSubtasks.length > 0) {
+          body += '\n\n📝 Liste:';
+          const displayCount = Math.min(incompleteSubtasks.length, 5);
+          for (let i = 0; i < displayCount; i++) {
+            body += `\n• ${incompleteSubtasks[i].title}`;
+          }
+          if (incompleteSubtasks.length > 5) {
+            body += `\n+ ${incompleteSubtasks.length - 5} autres...`;
+          }
+        }
+      }
+
       console.log('🔔 [NotificationService] ');
       console.log('🔔 [NotificationService] 📅 Planification notification');
       console.log('🔔 [NotificationService] Tâche:', task.title);
@@ -226,10 +246,11 @@ class NotificationService {
       const notificationId = await Notifications.scheduleNotificationAsync({
         content: {
           title: '⏰ Rappel de tâche',
-          body: task.title,
+          body,
           data: {
             taskId: task.id,
-            type: 'task_reminder'
+            type: 'task_reminder',
+            subtasks: task.subtasks?.map(st => st.title) || [],
           },
           sound: settings.sound,
           vibrate: settings.vibration ? [0, 250, 250, 250] : [],
@@ -250,6 +271,182 @@ class NotificationService {
     } catch (error) {
       console.error('🔔 [NotificationService] ❌ Erreur planification:', error);
       return null;
+    }
+  }
+
+  /**
+   * Envoie une notification de localisation avec liste complète et tâches proches
+   */
+  async sendLocationNotification(task: {
+    id: string;
+    title: string;
+    location: { name: string; latitude: number; longitude: number };
+    description?: string;
+    subtasks?: Array<{ title: string; completed: boolean }>;
+  }, nearbyTasks?: Array<{ id: string; title: string; location: { name: string } }>): Promise<void> {
+    try {
+      if (!this.hasPermissions) {
+        console.log('🔔 [NotificationService] ⚠️ Pas de permissions');
+        return;
+      }
+
+      const settings = useNotificationStore.getState().settings;
+      if (!settings.enabled || !settings.locationReminders) {
+        console.log('🔔 [NotificationService] 🔕 Notifications géo désactivées');
+        return;
+      }
+
+      // Construire le corps de la notification
+      let body = `Vous êtes près de ${task.location.name}`;
+
+      // Ajouter la liste si présente
+      if (task.subtasks && task.subtasks.length > 0) {
+        const incompleteSubtasks = task.subtasks.filter(st => !st.completed);
+        if (incompleteSubtasks.length > 0) {
+          body += '\n\n📝 Votre liste:';
+          const displayCount = Math.min(incompleteSubtasks.length, 5);
+          for (let i = 0; i < displayCount; i++) {
+            body += `\n• ${incompleteSubtasks[i].title}`;
+          }
+          if (incompleteSubtasks.length > 5) {
+            body += `\n+ ${incompleteSubtasks.length - 5} autres...`;
+          }
+        }
+      }
+
+      // Ajouter les tâches proches
+      if (nearbyTasks && nearbyTasks.length > 0) {
+        body += `\n\n📍 Vous avez aussi ${nearbyTasks.length} autre(s) tâche(s) dans le coin`;
+        const displayCount = Math.min(nearbyTasks.length, 3);
+        for (let i = 0; i < displayCount; i++) {
+          body += `\n• ${nearbyTasks[i].title}`;
+        }
+        if (nearbyTasks.length > 3) {
+          body += `\n+ ${nearbyTasks.length - 3} autres...`;
+        }
+      }
+
+      console.log('🔔 [NotificationService] 📍 Envoi notification géolocalisée');
+
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: task.title.includes('course') ? '🛒 Courses à faire' : '📍 Tâche à proximité',
+          body,
+          data: {
+            taskId: task.id,
+            type: 'location_reminder',
+            subtasks: task.subtasks?.map(st => st.title) || [],
+            nearbyTaskIds: nearbyTasks?.map(t => t.id) || [],
+          },
+          sound: settings.sound,
+          vibrate: settings.vibration ? [0, 250, 250, 250] : [],
+          priority: Notifications.AndroidNotificationPriority.HIGH,
+        },
+        trigger: null, // Immédiat
+      });
+
+      console.log('🔔 [NotificationService] ✅ Notification géo envoyée');
+    } catch (error) {
+      console.error('🔔 [NotificationService] ❌ Erreur notification géo:', error);
+    }
+  }
+
+  /**
+   * Envoie une notification groupée pour plusieurs tâches proches
+   */
+  async sendGroupedLocationNotification(
+    location: { name: string; latitude: number; longitude: number },
+    tasks: Array<{
+      id: string;
+      title: string;
+      category?: string;
+      subtasks?: Array<{ title: string; completed: boolean }>;
+    }>
+  ): Promise<void> {
+    try {
+      if (!this.hasPermissions) return;
+
+      const settings = useNotificationStore.getState().settings;
+      if (!settings.enabled || !settings.locationReminders) return;
+
+      const taskCount = tasks.length;
+      let body = `Vous êtes près de ${location.name}\n\n${taskCount} tâches à faire ici:`;
+
+      // Lister les tâches
+      const displayCount = Math.min(taskCount, 4);
+      for (let i = 0; i < displayCount; i++) {
+        body += `\n• ${tasks[i].title}`;
+
+        // Ajouter le nombre de sous-tâches si présent
+        if (tasks[i].subtasks && tasks[i].subtasks.length > 0) {
+          const incompleteCount = tasks[i].subtasks!.filter(st => !st.completed).length;
+          if (incompleteCount > 0) {
+            body += ` (${incompleteCount} items)`;
+          }
+        }
+      }
+
+      if (taskCount > 4) {
+        body += `\n+ ${taskCount - 4} autres...`;
+      }
+
+      console.log('🔔 [NotificationService] 📍 Envoi notification groupée');
+
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: `📍 ${taskCount} tâches à proximité`,
+          body,
+          data: {
+            type: 'grouped_location',
+            taskIds: tasks.map(t => t.id),
+            location: location.name,
+          },
+          sound: settings.sound,
+          vibrate: settings.vibration ? [0, 250, 250, 250] : [],
+          priority: Notifications.AndroidNotificationPriority.HIGH,
+        },
+        trigger: null,
+      });
+
+      console.log('🔔 [NotificationService] ✅ Notification groupée envoyée');
+    } catch (error) {
+      console.error('🔔 [NotificationService] ❌ Erreur notification groupée:', error);
+    }
+  }
+
+  /**
+   * Envoie une notification de suggestion d'optimisation
+   */
+  async sendOptimizationSuggestion(
+    title: string,
+    message: string,
+    suggestionId: string
+  ): Promise<void> {
+    try {
+      if (!this.hasPermissions) return;
+
+      const settings = useNotificationStore.getState().settings;
+      if (!settings.enabled) return;
+
+      console.log('🔔 [NotificationService] 💡 Envoi suggestion d\'optimisation');
+
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: `💡 ${title}`,
+          body: message,
+          data: {
+            type: 'optimization_suggestion',
+            suggestionId,
+          },
+          sound: false, // Pas de son pour les suggestions
+          priority: Notifications.AndroidNotificationPriority.DEFAULT,
+        },
+        trigger: null,
+      });
+
+      console.log('🔔 [NotificationService] ✅ Suggestion envoyée');
+    } catch (error) {
+      console.error('🔔 [NotificationService] ❌ Erreur suggestion:', error);
     }
   }
 
