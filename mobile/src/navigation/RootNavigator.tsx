@@ -28,6 +28,7 @@ import NotificationsScreen from '@/screens/NotificationsScreen';
 import NotificationSettingsScreen from '@/screens/NotificationSettingsScreen';
 import FocusModeScreen from '@/screens/FocusModeScreen';
 import StatsScreen from '@/screens/StatsScreen';
+import { SmartAssistantScreen } from '@/screens/SmartAssistantScreen';
 
 import { RootStackParamList } from '@/types';
 
@@ -242,6 +243,14 @@ export default function RootNavigator() {
               options={{
                 presentation: 'modal',
                 animation: 'slide_from_bottom',
+              }}
+            />
+            <Stack.Screen
+              name="SmartAssistant"
+              component={SmartAssistantScreen}
+              options={{
+                presentation: 'modal',
+                animation: 'slide_from_right',
               }}
             />
           </>
