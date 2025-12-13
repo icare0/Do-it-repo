@@ -11,6 +11,7 @@ import { useOnboardingStore } from '@/store/onboardingStore';
 import { authService } from '@/services/authService';
 import { useThemeStore } from '@/store/themeStore';
 import { getTheme } from '@/theme';
+import { deepLinkingService } from '@/services/deepLinkingService';
 
 const { width } = Dimensions.get('window');
 
@@ -28,6 +29,8 @@ import NotificationsScreen from '@/screens/NotificationsScreen';
 import NotificationSettingsScreen from '@/screens/NotificationSettingsScreen';
 import FocusModeScreen from '@/screens/FocusModeScreen';
 import StatsScreen from '@/screens/StatsScreen';
+import { SmartAssistantScreen } from '@/screens/SmartAssistantScreen';
+import WidgetSetupScreen from '@/screens/WidgetSetupScreen';
 
 import { RootStackParamList } from '@/types';
 
@@ -172,6 +175,17 @@ export default function RootNavigator() {
     }
   }, [action, isAuthenticated]);
 
+  // Initialize deep linking service
+  useEffect(() => {
+    if (navigationRef.current) {
+      deepLinkingService.initialize(navigationRef.current);
+    }
+
+    return () => {
+      deepLinkingService.cleanup();
+    };
+  }, []);
+
   if (authLoading || onboardingLoading) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.background }}>
@@ -242,6 +256,22 @@ export default function RootNavigator() {
               options={{
                 presentation: 'modal',
                 animation: 'slide_from_bottom',
+              }}
+            />
+            <Stack.Screen
+              name="SmartAssistant"
+              component={SmartAssistantScreen}
+              options={{
+                presentation: 'modal',
+                animation: 'slide_from_right',
+              }}
+            />
+            <Stack.Screen
+              name="WidgetSetup"
+              component={WidgetSetupScreen}
+              options={{
+                presentation: 'modal',
+                animation: 'slide_from_right',
               }}
             />
           </>

@@ -431,6 +431,198 @@ class RouteService {
       console.error('Error clearing expired cache:', error);
     }
   }
+
+  // ===== OPTIMISATION 2-OPT =====
+
+  /**
+   * Optimise une route avec l'algorithme 2-opt
+   * Améliore une solution existante en éliminant les croisements
+   *
+   * Principe: Pour chaque paire d'arêtes, essayer de les croiser
+   * Si le croisement réduit la distance totale, l'appliquer
+   *
+   * Complexité: O(n²) par itération, converge généralement en 2-5 itérations
+   * Gain typique: 5-15% d'amélioration sur Nearest Neighbor
+   */
+  async optimize2Opt(
+    route: Array<{ latitude: number; longitude: number }>,
+    maxIterations: number = 10
+  ): Promise<{
+    optimizedRoute: Array<{ latitude: number; longitude: number }>;
+    improvement: number; // Pourcentage d'amélioration
+    iterations: number;
+  }> {
+    if (route.length < 4) {
+      // 2-opt nécessite au moins 4 points
+      return {
+        optimizedRoute: route,
+        improvement: 0,
+        iterations: 0,
+      };
+    }
+
+    let currentRoute = [...route];
+    let currentDistance = this.calculateTotalRouteDistance(currentRoute);
+    const initialDistance = currentDistance;
+    let improved = true;
+    let iterationCount = 0;
+
+    while (improved && iterationCount < maxIterations) {
+      improved = false;
+      iterationCount++;
+
+      // Essayer toutes les paires d'arêtes
+      for (let i = 0; i < currentRoute.length - 2; i++) {
+        for (let j = i + 2; j < currentRoute.length; j++) {
+          // Éviter les arêtes adjacentes (pas de sens de les croiser)
+          if (j === currentRoute.length - 1 && i === 0) continue;
+
+          // Calculer la distance actuelle des deux arêtes
+          const distanceBefore =
+            this.calculateHaversineDistance(currentRoute[i], currentRoute[i + 1]) +
+            this.calculateHaversineDistance(currentRoute[j], currentRoute[(j + 1) % currentRoute.length]);
+
+          // Calculer la distance si on croise les arêtes
+          const distanceAfter =
+            this.calculateHaversineDistance(currentRoute[i], currentRoute[j]) +
+            this.calculateHaversineDistance(currentRoute[i + 1], currentRoute[(j + 1) % currentRoute.length]);
+
+          // Si le croisement améliore, l'appliquer
+          if (distanceAfter < distanceBefore) {
+            // Inverser la section entre i+1 et j
+            currentRoute = this.reverse2OptSegment(currentRoute, i + 1, j);
+            currentDistance = this.calculateTotalRouteDistance(currentRoute);
+            improved = true;
+          }
+        }
+      }
+    }
+
+    const improvement = ((initialDistance - currentDistance) / initialDistance) * 100;
+
+    console.log(
+      `[RouteService] 2-opt: ${iterationCount} iterations, ${improvement.toFixed(1)}% improvement (${(initialDistance / 1000).toFixed(1)}km → ${(currentDistance / 1000).toFixed(1)}km)`
+    );
+
+    return {
+      optimizedRoute: currentRoute,
+      improvement,
+      iterations: iterationCount,
+    };
+  }
+
+  /**
+   * Inverse un segment de route (pour 2-opt)
+   */
+  private reverse2OptSegment(
+    route: Array<{ latitude: number; longitude: number }>,
+    start: number,
+    end: number
+  ): Array<{ latitude: number; longitude: number }> {
+    const result = [...route];
+    const segment = result.slice(start, end + 1).reverse();
+
+    for (let i = 0; i < segment.length; i++) {
+      result[start + i] = segment[i];
+    }
+
+    return result;
+  }
+
+  /**
+   * Calcule la distance totale d'une route
+   */
+  private calculateTotalRouteDistance(
+    route: Array<{ latitude: number; longitude: number }>
+  ): number {
+    let total = 0;
+
+    for (let i = 0; i < route.length - 1; i++) {
+      total += this.calculateHaversineDistance(route[i], route[i + 1]);
+    }
+
+    return total;
+  }
+
+  /**
+   * Optimise une route avec Nearest Neighbor + 2-opt (combiné)
+   * Meilleure qualité que NN seul, toujours rapide
+   */
+  async optimizeRouteComplete(
+    points: Array<{ latitude: number; longitude: number; id?: string }>,
+    startLocation?: { latitude: number; longitude: number }
+  ): Promise<{
+    optimizedOrder: Array<{ latitude: number; longitude: number; id?: string }>;
+    totalDistance: number;
+    improvement2Opt: number;
+  }> {
+    if (points.length < 2) {
+      return {
+        optimizedOrder: points,
+        totalDistance: 0,
+        improvement2Opt: 0,
+      };
+    }
+
+    // Étape 1: Nearest Neighbor
+    const start = startLocation || points[0];
+    const nnRoute = this.nearestNeighborRoute(points, start);
+
+    // Étape 2: 2-opt pour affiner
+    const { optimizedRoute, improvement } = await this.optimize2Opt(
+      nnRoute.map((p) => ({ latitude: p.latitude, longitude: p.longitude }))
+    );
+
+    // Remettre les IDs si présents
+    const finalRoute = optimizedRoute.map((point, index) => {
+      const original = points.find(
+        (p) =>
+          Math.abs(p.latitude - point.latitude) < 0.00001 &&
+          Math.abs(p.longitude - point.longitude) < 0.00001
+      );
+      return original || point;
+    });
+
+    const totalDistance = this.calculateTotalRouteDistance(optimizedRoute);
+
+    return {
+      optimizedOrder: finalRoute,
+      totalDistance,
+      improvement2Opt: improvement,
+    };
+  }
+
+  /**
+   * Nearest Neighbor simple (sans optimization 2-opt)
+   * Utilisé comme base pour 2-opt
+   */
+  private nearestNeighborRoute(
+    points: Array<{ latitude: number; longitude: number }>,
+    start: { latitude: number; longitude: number }
+  ): Array<{ latitude: number; longitude: number }> {
+    const remaining = [...points];
+    const route: Array<{ latitude: number; longitude: number }> = [];
+    let current = start;
+
+    while (remaining.length > 0) {
+      let nearestIndex = 0;
+      let nearestDistance = Infinity;
+
+      for (let i = 0; i < remaining.length; i++) {
+        const distance = this.calculateHaversineDistance(current, remaining[i]);
+        if (distance < nearestDistance) {
+          nearestDistance = distance;
+          nearestIndex = i;
+        }
+      }
+
+      const nearest = remaining.splice(nearestIndex, 1)[0];
+      route.push(nearest);
+      current = nearest;
+    }
+
+    return route;
+  }
 }
 
 export default new RouteService();

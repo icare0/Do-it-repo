@@ -82,6 +82,7 @@ export type RootStackParamList = {
   Main: undefined;
   Login: undefined;
   Register: undefined;
+  Onboarding: undefined;
   Today: undefined;
   TaskList: undefined;
   TaskDetail: { taskId: string };
@@ -92,4 +93,7 @@ export type RootStackParamList = {
   Notifications: undefined;
   NotificationSettings: undefined;
   FocusMode: { taskTitle?: string } | undefined;
+  SmartAssistant: undefined;
+  Stats: undefined;
+  WidgetSetup: undefined;
 };
