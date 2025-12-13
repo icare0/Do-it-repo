@@ -11,10 +11,17 @@ import { notificationService } from '@/services/notificationService';
 import { locationService } from '@/services/locationService';
 import { smartTaskService } from '@/services/smartTaskService';
 import { locationTaskService } from '@/services/locationTaskService';
+import { useDataLoader, useTaskSubscription } from '@/hooks/useDataLoader';
 
 export default function App() {
   const { colorScheme } = useThemeStore();
   const { token, refreshToken } = useAuthStore();
+
+  // Load data from WatermelonDB on startup
+  const { isLoading: isLoadingData, error: dataError } = useDataLoader();
+
+  // Subscribe to real-time task updates
+  useTaskSubscription();
 
   useEffect(() => {
     initializeServices();
