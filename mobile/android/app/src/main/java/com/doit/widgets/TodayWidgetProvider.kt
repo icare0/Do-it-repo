@@ -7,8 +7,8 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.RemoteViews
-import com.doit.MainActivity
-import com.doit.R
+import com.icare.doit.MainActivity
+import com.icare.doit.R
 
 /**
  * Today Widget - Shows today's tasks with progress

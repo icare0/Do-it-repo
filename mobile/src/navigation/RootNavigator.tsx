@@ -138,8 +138,8 @@ function TabNavigator() {
   );
 }
 
-import * as QuickActions from 'expo-quick-actions';
-import { useQuickAction } from 'expo-quick-actions/hooks';
+// import * as QuickActions from 'expo-quick-actions';
+// import { useQuickAction } from 'expo-quick-actions/hooks';
 import { createNavigationContainerRef } from '@react-navigation/native';
 
 export const navigationRef = createNavigationContainerRef<RootStackParamList>();
@@ -150,30 +150,30 @@ export default function RootNavigator() {
   const { colorScheme } = useThemeStore();
   const theme = getTheme(colorScheme);
 
-  const action = useQuickAction();
+  // const action = useQuickAction();
 
   useEffect(() => {
     checkOnboardingStatus();
   }, []);
 
-  useEffect(() => {
-    QuickActions.setItems([
-      {
-        id: 'quick_add',
-        title: 'Nouvelle Tâche',
-        subtitle: 'Ajouter rapidement',
-        icon: 'compose',
-        params: { href: 'quick-add' },
-      },
-    ]);
-  }, []);
+  // useEffect(() => {
+  //   QuickActions.setItems([
+  //     {
+  //       id: 'quick_add',
+  //       title: 'Nouvelle Tâche',
+  //       subtitle: 'Ajouter rapidement',
+  //       icon: 'compose',
+  //       params: { href: 'quick-add' },
+  //     },
+  //   ]);
+  // }, []);
 
-  useEffect(() => {
-    if (action?.params?.href === 'quick-add' && isAuthenticated && navigationRef.isReady()) {
-      // @ts-ignore
-      navigationRef.navigate('QuickAdd');
-    }
-  }, [action, isAuthenticated]);
+  // useEffect(() => {
+  //   if (action?.params?.href === 'quick-add' && isAuthenticated && navigationRef.isReady()) {
+  //     // @ts-ignore
+  //     navigationRef.navigate('QuickAdd');
+  //   }
+  // }, [action, isAuthenticated]);
 
   // Initialize deep linking service
   useEffect(() => {

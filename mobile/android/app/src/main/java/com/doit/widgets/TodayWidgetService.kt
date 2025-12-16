@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.widget.RemoteViews
 import android.widget.RemoteViewsService
-import com.doit.R
+import com.icare.doit.R
 
 /**
  * Service for Today Widget ListView

@@ -7,8 +7,8 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.RemoteViews
-import com.doit.MainActivity
-import com.doit.R
+import com.icare.doit.MainActivity
+import com.icare.doit.R
 
 /**
  * Next Task Widget - Shows the next upcoming task
@@ -45,18 +45,18 @@ class NextTaskWidgetProvider : AppWidgetProvider() {
             val views = RemoteViews(context.packageName, R.layout.widget_next_task)
 
             // Load next task data
-            val data = WidgetDataProvider.getNextTaskData(context)
+            val taskData = WidgetDataProvider.getNextTaskData(context)
 
-            if (data != null) {
+            if (taskData != null) {
                 // Task found - show task details
                 views.setViewVisibility(R.id.task_content, android.view.View.VISIBLE)
                 views.setViewVisibility(R.id.empty_state, android.view.View.GONE)
 
                 // Set task title
-                views.setTextViewText(R.id.task_title, data.title)
+                views.setTextViewText(R.id.task_title, taskData.title)
 
                 // Set time if available
-                data.getFormattedTime()?.let { time ->
+                taskData.getFormattedTime()?.let { time ->
                     views.setTextViewText(R.id.task_time, time)
                     views.setViewVisibility(R.id.task_time, android.view.View.VISIBLE)
                 } ?: run {
@@ -64,7 +64,7 @@ class NextTaskWidgetProvider : AppWidgetProvider() {
                 }
 
                 // Set category if available
-                data.category?.let { category ->
+                taskData.category?.let { category ->
                     views.setTextViewText(R.id.task_category, category)
                     views.setViewVisibility(R.id.task_category, android.view.View.VISIBLE)
                 } ?: run {
@@ -75,11 +75,11 @@ class NextTaskWidgetProvider : AppWidgetProvider() {
                 views.setInt(
                     R.id.priority_indicator,
                     "setBackgroundColor",
-                    data.getPriorityColor()
+                    taskData.getPriorityColor()
                 )
 
                 // Set priority text
-                val priorityText = when (data.priority) {
+                val priorityText = when (taskData.priority) {
                     WidgetTaskData.Priority.HIGH -> "Urgent"
                     WidgetTaskData.Priority.MEDIUM -> "Normal"
                     WidgetTaskData.Priority.LOW -> "Faible"
@@ -87,7 +87,7 @@ class NextTaskWidgetProvider : AppWidgetProvider() {
                 views.setTextViewText(R.id.priority_text, priorityText)
 
                 // Set location if available
-                data.location?.let { location ->
+                taskData.location?.let { location ->
                     views.setTextViewText(R.id.task_location, "📍 ${location.name}")
                     views.setViewVisibility(R.id.task_location, android.view.View.VISIBLE)
                 } ?: run {
@@ -95,7 +95,7 @@ class NextTaskWidgetProvider : AppWidgetProvider() {
                 }
 
                 // Set duration if available
-                data.duration?.let { duration ->
+                taskData.duration?.let { duration ->
                     val hours = duration / 60
                     val minutes = duration % 60
                     val durationText = when {

@@ -7,8 +7,8 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.RemoteViews
-import com.doit.MainActivity
-import com.doit.R
+import com.icare.doit.MainActivity
+import com.icare.doit.R
 
 /**
  * Smart Suggestions Widget - Shows AI-powered optimization suggestions
@@ -45,26 +45,26 @@ class SuggestionsWidgetProvider : AppWidgetProvider() {
             val views = RemoteViews(context.packageName, R.layout.widget_suggestions)
 
             // Load suggestions data
-            val data = WidgetDataProvider.getSuggestionsData(context)
+            val suggestionsData = WidgetDataProvider.getSuggestionsData(context)
 
-            if (data != null && data.suggestions.isNotEmpty()) {
+            if (suggestionsData != null && suggestionsData.suggestions.isNotEmpty()) {
                 // Show suggestions content
                 views.setViewVisibility(R.id.suggestions_content, android.view.View.VISIBLE)
                 views.setViewVisibility(R.id.empty_state, android.view.View.GONE)
 
                 // Set suggestions count
-                views.setTextViewText(R.id.suggestions_count, "${data.totalSuggestions}")
+                views.setTextViewText(R.id.suggestions_count, "${suggestionsData.totalSuggestions}")
 
                 // Set high priority count if available
-                if (data.highPriorityCount > 0) {
-                    views.setTextViewText(R.id.high_priority_badge, "${data.highPriorityCount}")
+                if (suggestionsData.highPriorityCount > 0) {
+                    views.setTextViewText(R.id.high_priority_badge, "${suggestionsData.highPriorityCount}")
                     views.setViewVisibility(R.id.high_priority_container, android.view.View.VISIBLE)
                 } else {
                     views.setViewVisibility(R.id.high_priority_container, android.view.View.GONE)
                 }
 
                 // Display top 3 suggestions
-                val topSuggestions = data.suggestions.take(3)
+                val topSuggestions = suggestionsData.suggestions.take(3)
 
                 // Suggestion 1
                 if (topSuggestions.isNotEmpty()) {

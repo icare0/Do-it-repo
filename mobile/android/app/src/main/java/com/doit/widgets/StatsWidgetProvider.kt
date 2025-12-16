@@ -7,8 +7,8 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.RemoteViews
-import com.doit.MainActivity
-import com.doit.R
+import com.icare.doit.MainActivity
+import com.icare.doit.R
 
 /**
  * Stats Widget - Shows productivity statistics
@@ -45,37 +45,37 @@ class StatsWidgetProvider : AppWidgetProvider() {
             val views = RemoteViews(context.packageName, R.layout.widget_stats)
 
             // Load stats data
-            val data = WidgetDataProvider.getStatsData(context)
+            val statsData = WidgetDataProvider.getStatsData(context)
 
-            if (data != null) {
+            if (statsData != null) {
                 // Show stats content
                 views.setViewVisibility(R.id.stats_content, android.view.View.VISIBLE)
                 views.setViewVisibility(R.id.empty_state, android.view.View.GONE)
 
                 // Completion Rate
-                views.setTextViewText(R.id.completion_rate_value, "${data.completionRate}%")
+                views.setTextViewText(R.id.completion_rate_value, "${statsData.completionRate}%")
 
                 // Completion Rate Progress Bar (simulate with colored view)
-                val progressWidth = (data.completionRate * 2.5).toInt() // Scale to fit widget width
+                val progressWidth = (statsData.completionRate * 2.5).toInt() // Scale to fit widget width
                 views.setInt(R.id.completion_rate_progress, "setMaxWidth", 250)
 
                 // Tasks Completed
-                views.setTextViewText(R.id.tasks_completed_value, "${data.totalCompleted}")
-                views.setTextViewText(R.id.tasks_total_value, "/${data.totalTasks}")
+                views.setTextViewText(R.id.tasks_completed_value, "${statsData.totalCompleted}")
+                views.setTextViewText(R.id.tasks_total_value, "/${statsData.totalTasks}")
 
                 // Current Streak
-                views.setTextViewText(R.id.current_streak_value, "${data.currentStreak}")
-                val streakText = if (data.currentStreak > 1) "jours" else "jour"
+                views.setTextViewText(R.id.current_streak_value, "${statsData.currentStreak}")
+                val streakText = if (statsData.currentStreak > 1) "jours" else "jour"
                 views.setTextViewText(R.id.current_streak_label, streakText)
 
                 // Best Streak
-                views.setTextViewText(R.id.best_streak_value, "${data.bestStreak}")
+                views.setTextViewText(R.id.best_streak_value, "${statsData.bestStreak}")
 
                 // Average Per Day
-                views.setTextViewText(R.id.average_value, String.format("%.1f", data.averagePerDay))
+                views.setTextViewText(R.id.average_value, String.format("%.1f", statsData.averagePerDay))
 
                 // Trend Indicator
-                val (trendIcon, trendColor) = when (data.trend) {
+                val (trendIcon, trendColor) = when (statsData.trend) {
                     WidgetStatsData.Trend.UP -> Pair("📈", 0xFF10B981.toInt())
                     WidgetStatsData.Trend.DOWN -> Pair("📉", 0xFFEF4444.toInt())
                     WidgetStatsData.Trend.STABLE -> Pair("➡️", 0xFF6B7280.toInt())
@@ -84,7 +84,7 @@ class StatsWidgetProvider : AppWidgetProvider() {
                 views.setTextColor(R.id.trend_icon, trendColor)
 
                 // Period
-                views.setTextViewText(R.id.period_text, data.period)
+                views.setTextViewText(R.id.period_text, statsData.period)
 
             } else {
                 // No data - show empty state
