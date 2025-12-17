@@ -65,111 +65,135 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Background mockup */}
-      <View style={styles.backgroundMockup}>
-        <LinearGradient
-          colors={isDark ? ['#1a1a2e', '#16213e', '#0f3460'] : ['#E3F2FD', '#BBDEFB', '#90CAF9']}
-          style={StyleSheet.absoluteFillObject}
+      {/* Background with abstract shapes */}
+      <LinearGradient
+        colors={isDark
+          ? ['#0f172a', '#1e293b', '#334155']
+          : ['#667eea', '#764ba2', '#f093fb']
+        }
+        style={StyleSheet.absoluteFillObject}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      />
+
+      {/* Abstract geometric shapes */}
+      <View style={styles.shapesContainer}>
+        {/* Large circle */}
+        <View
+          style={[
+            styles.circle,
+            styles.circleLarge,
+            { backgroundColor: isDark ? 'rgba(139, 92, 246, 0.15)' : 'rgba(255, 255, 255, 0.2)' }
+          ]}
         />
-
-        {/* Mockup content - simulating the main app view */}
-        <SafeAreaView style={styles.mockupContent}>
-          <View style={styles.mockupHeader}>
-            <Text style={[styles.mockupHeaderText, { color: isDark ? '#fff' : '#1a1a2e' }]}>
-              Aujourd'hui
-            </Text>
-            <View style={styles.mockupHeaderIcons}>
-              <Ionicons name="notifications-outline" size={24} color={isDark ? '#fff' : '#1a1a2e'} />
-            </View>
-          </View>
-
-          <View style={styles.mockupTasks}>
-            {[1, 2, 3, 4].map((i) => (
-              <View
-                key={i}
-                style={[
-                  styles.mockupTask,
-                  { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.7)' },
-                ]}
-              >
-                <View style={[styles.mockupCheckbox, { borderColor: isDark ? '#fff' : '#1a1a2e' }]} />
-                <View style={styles.mockupTaskContent}>
-                  <View
-                    style={[
-                      styles.mockupTaskTitle,
-                      { backgroundColor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)' },
-                    ]}
-                  />
-                  <View
-                    style={[
-                      styles.mockupTaskSubtitle,
-                      { backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)' },
-                    ]}
-                  />
-                </View>
-              </View>
-            ))}
-          </View>
-        </SafeAreaView>
+        {/* Medium circle */}
+        <View
+          style={[
+            styles.circle,
+            styles.circleMedium,
+            { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255, 255, 255, 0.15)' }
+          ]}
+        />
+        {/* Small circle */}
+        <View
+          style={[
+            styles.circle,
+            styles.circleSmall,
+            { backgroundColor: isDark ? 'rgba(236, 72, 153, 0.15)' : 'rgba(255, 255, 255, 0.25)' }
+          ]}
+        />
+        {/* Squares */}
+        <View
+          style={[
+            styles.square,
+            styles.squareTop,
+            { backgroundColor: isDark ? 'rgba(34, 211, 238, 0.1)' : 'rgba(255, 255, 255, 0.1)' }
+          ]}
+        />
+        <View
+          style={[
+            styles.square,
+            styles.squareBottom,
+            { backgroundColor: isDark ? 'rgba(251, 146, 60, 0.1)' : 'rgba(255, 255, 255, 0.15)' }
+          ]}
+        />
       </View>
 
       {/* Blur overlay */}
-      <BlurView intensity={isDark ? 40 : 60} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFillObject}>
+      <BlurView intensity={isDark ? 50 : 70} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFillObject}>
         <SafeAreaView style={styles.overlay}>
           <View style={styles.loginContainer}>
-            {/* Logo */}
+            {/* Logo and Title */}
             <View style={styles.logoContainer}>
-              <View style={[styles.logo, { backgroundColor: theme.colors.primary }]}>
-                <Ionicons name="checkmark-done" size={40} color="#fff" />
+              <View style={[styles.logo, {
+                backgroundColor: '#fff',
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 8 },
+                shadowOpacity: 0.3,
+                shadowRadius: 16,
+                elevation: 12,
+              }]}>
+                <Ionicons name="checkmark-done" size={44} color={theme.colors.primary} />
               </View>
-              <Text style={[styles.title, { color: isDark ? '#fff' : '#1a1a2e' }]}>Bienvenue</Text>
-              <Text style={[styles.subtitle, { color: isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)' }]}>
-                Connectez-vous pour continuer
+              <Text style={[styles.title, { color: '#fff' }]}>Do'It</Text>
+              <Text style={[styles.subtitle, { color: 'rgba(255,255,255,0.9)' }]}>
+                Organisez votre vie simplement
               </Text>
             </View>
 
-            {/* Login options */}
-            <View style={styles.loginOptions}>
+            {/* Login Card */}
+            <View style={[styles.loginCard, {
+              backgroundColor: isDark ? 'rgba(30, 41, 59, 0.8)' : 'rgba(255, 255, 255, 0.95)',
+            }]}>
               {/* Google Login */}
               <TouchableOpacity
-                style={[styles.googleButton, { backgroundColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.9)' }]}
+                style={[styles.googleButton, {
+                  backgroundColor: '#fff',
+                  borderWidth: 1,
+                  borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+                }]}
                 onPress={handleGoogleLogin}
                 disabled={loading}
               >
-                <Ionicons name="logo-google" size={24} color={theme.colors.primary} />
-                <Text style={[styles.googleButtonText, { color: isDark ? '#fff' : '#1a1a2e' }]}>
+                <Ionicons name="logo-google" size={24} color="#EA4335" />
+                <Text style={[styles.googleButtonText, { color: '#1a1a2e' }]}>
                   Continuer avec Google
                 </Text>
               </TouchableOpacity>
 
               {/* Divider */}
               <View style={styles.divider}>
-                <View style={[styles.dividerLine, { backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)' }]} />
-                <Text style={[styles.dividerText, { color: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)' }]}>
+                <View style={[styles.dividerLine, { backgroundColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)' }]} />
+                <Text style={[styles.dividerText, { color: isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)' }]}>
                   ou
                 </Text>
-                <View style={[styles.dividerLine, { backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)' }]} />
+                <View style={[styles.dividerLine, { backgroundColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)' }]} />
               </View>
 
               {/* Email Login */}
               <TouchableOpacity
-                style={[styles.emailButton, { borderColor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)' }]}
+                style={[styles.emailButton, {
+                  backgroundColor: theme.colors.primary,
+                }]}
                 onPress={() => setShowEmailModal(true)}
                 disabled={loading}
               >
-                <Ionicons name="mail-outline" size={24} color={isDark ? '#fff' : '#1a1a2e'} />
-                <Text style={[styles.emailButtonText, { color: isDark ? '#fff' : '#1a1a2e' }]}>
+                <Ionicons name="mail-outline" size={22} color="#fff" />
+                <Text style={[styles.emailButtonText, { color: '#fff' }]}>
                   Se connecter avec Email
                 </Text>
               </TouchableOpacity>
 
               {/* Register Link */}
               <View style={styles.registerContainer}>
-                <Text style={[styles.registerText, { color: isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)' }]}>
+                <Text style={[styles.registerText, { color: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' }]}>
                   Pas de compte ?{' '}
                 </Text>
                 <TouchableOpacity onPress={() => navigation.navigate('Register' as never)}>
-                  <Text style={[styles.registerLink, { color: theme.colors.primary }]}>
+                  <Text style={[styles.registerLink, {
+                    color: theme.colors.primary,
+                    fontWeight: '700',
+                  }]}>
                     Créer un compte
                   </Text>
                 </TouchableOpacity>
@@ -186,19 +210,31 @@ export default function LoginScreen() {
         transparent={true}
         onRequestClose={() => setShowEmailModal(false)}
       >
-        <BlurView intensity={isDark ? 40 : 60} tint={isDark ? 'dark' : 'light'} style={styles.modalContainer}>
+        <BlurView intensity={80} tint={isDark ? 'dark' : 'light'} style={styles.modalContainer}>
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             style={styles.modalKeyboardView}
           >
-            <View style={[styles.modalContent, { backgroundColor: isDark ? '#1a1a2e' : '#fff' }]}>
+            <View style={[styles.modalContent, {
+              backgroundColor: isDark ? '#1e293b' : '#fff',
+            }]}>
+              {/* Handle bar */}
+              <View style={styles.modalHandleContainer}>
+                <View style={[styles.modalHandle, {
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)',
+                }]} />
+              </View>
+
               {/* Header */}
               <View style={styles.modalHeader}>
                 <Text style={[styles.modalTitle, { color: isDark ? '#fff' : '#1a1a2e' }]}>
-                  Connexion
+                  Connexion Email
                 </Text>
-                <TouchableOpacity onPress={() => setShowEmailModal(false)}>
-                  <Ionicons name="close" size={28} color={isDark ? '#fff' : '#1a1a2e'} />
+                <TouchableOpacity
+                  onPress={() => setShowEmailModal(false)}
+                  style={styles.closeButton}
+                >
+                  <Ionicons name="close-circle" size={32} color={isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.3)'} />
                 </TouchableOpacity>
               </View>
 
@@ -228,8 +264,14 @@ export default function LoginScreen() {
                   onPress={handleEmailLogin}
                   loading={loading}
                   fullWidth
-                  style={{ marginTop: 8 }}
+                  style={{ marginTop: 16 }}
                 />
+
+                <TouchableOpacity style={styles.forgotPassword}>
+                  <Text style={[styles.forgotPasswordText, { color: theme.colors.primary }]}>
+                    Mot de passe oublié ?
+                  </Text>
+                </TouchableOpacity>
               </View>
             </View>
           </KeyboardAvoidingView>
@@ -243,56 +285,47 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  backgroundMockup: {
-    flex: 1,
+  shapesContainer: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: 'hidden',
   },
-  mockupContent: {
-    flex: 1,
-    paddingHorizontal: 20,
+  circle: {
+    position: 'absolute',
+    borderRadius: 9999,
   },
-  mockupHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 16,
+  circleLarge: {
+    width: 400,
+    height: 400,
+    top: -100,
+    right: -100,
   },
-  mockupHeaderText: {
-    fontSize: 28,
-    fontWeight: '700',
+  circleMedium: {
+    width: 280,
+    height: 280,
+    bottom: -80,
+    left: -60,
   },
-  mockupHeaderIcons: {
-    flexDirection: 'row',
+  circleSmall: {
+    width: 180,
+    height: 180,
+    top: height * 0.4,
+    right: -40,
   },
-  mockupTasks: {
-    marginTop: 20,
+  square: {
+    position: 'absolute',
+    transform: [{ rotate: '45deg' }],
   },
-  mockupTask: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
+  squareTop: {
+    width: 120,
+    height: 120,
+    top: height * 0.15,
+    left: 40,
   },
-  mockupCheckbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    marginRight: 12,
-  },
-  mockupTaskContent: {
-    flex: 1,
-  },
-  mockupTaskTitle: {
-    height: 16,
-    borderRadius: 4,
-    marginBottom: 8,
-    width: '80%',
-  },
-  mockupTaskSubtitle: {
-    height: 12,
-    borderRadius: 4,
-    width: '50%',
+  squareBottom: {
+    width: 90,
+    height: 90,
+    bottom: height * 0.25,
+    right: 60,
   },
   overlay: {
     flex: 1,
@@ -302,36 +335,41 @@ const styles = StyleSheet.create({
   },
   loginContainer: {
     width: '100%',
-    maxWidth: 400,
+    maxWidth: 420,
+    alignItems: 'center',
   },
   logoContainer: {
     alignItems: 'center',
-    marginBottom: 48,
+    marginBottom: 40,
   },
   logo: {
-    width: 72,
-    height: 72,
-    borderRadius: 20,
+    width: 84,
+    height: 84,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    marginBottom: 20,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
+    fontSize: 36,
+    fontWeight: '800',
     marginBottom: 8,
+    letterSpacing: -0.5,
   },
   subtitle: {
-    fontSize: 15,
+    fontSize: 16,
     textAlign: 'center',
+    fontWeight: '500',
   },
-  loginOptions: {
+  loginCard: {
     width: '100%',
+    padding: 28,
+    borderRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
   },
   googleButton: {
     flexDirection: 'row',
@@ -339,12 +377,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 16,
     paddingHorizontal: 24,
-    borderRadius: 12,
+    borderRadius: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
   },
   googleButtonText: {
     fontSize: 16,
@@ -354,7 +392,7 @@ const styles = StyleSheet.create({
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 24,
+    marginVertical: 20,
   },
   dividerLine: {
     flex: 1,
@@ -362,7 +400,8 @@ const styles = StyleSheet.create({
   },
   dividerText: {
     marginHorizontal: 16,
-    fontSize: 14,
+    fontSize: 13,
+    fontWeight: '500',
   },
   emailButton: {
     flexDirection: 'row',
@@ -370,26 +409,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 16,
     paddingHorizontal: 24,
-    borderRadius: 12,
-    borderWidth: 2,
+    borderRadius: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
   emailButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    marginLeft: 12,
+    marginLeft: 10,
   },
   registerContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 24,
+    marginTop: 20,
   },
   registerText: {
     fontSize: 14,
   },
   registerLink: {
     fontSize: 14,
-    fontWeight: '600',
   },
   modalContainer: {
     flex: 1,
@@ -399,30 +441,49 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     paddingHorizontal: 24,
     paddingBottom: 40,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 10,
+    shadowOffset: { width: 0, height: -8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 15,
+  },
+  modalHandleContainer: {
+    alignItems: 'center',
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.1)',
+    paddingVertical: 16,
     marginBottom: 24,
   },
   modalTitle: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '700',
+  },
+  closeButton: {
+    padding: 4,
   },
   modalForm: {
     gap: 16,
+  },
+  forgotPassword: {
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  forgotPasswordText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
