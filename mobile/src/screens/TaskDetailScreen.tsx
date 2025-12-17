@@ -13,14 +13,14 @@ import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { Button } from '@/components/ui/Button';
 import { useThemeStore } from '@/store/themeStore';
 import { useTaskStore } from '@/store/taskStore';
-import { getTheme } from '@/theme';
+import { getTheme, spacing, borderRadius } from '@/theme';
 import { database, TaskModel } from '@/database';
 import { syncService } from '@/services/syncService';
 
 const { width } = Dimensions.get('window');
 
 export default function TaskDetailScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const route = useRoute();
   const insets = useSafeAreaInsets();
   const { colorScheme } = useThemeStore();
@@ -84,14 +84,19 @@ export default function TaskDetailScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     await toggleTaskCompletion(task.id);
     if (!task.completed) {
-      setTimeout(() => navigation.goBack(), 500);
+      navigation.goBack();
     }
+  }
+
+  function handleStartFocus() {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    navigation.navigate('FocusMode', { taskTitle: task?.title });
   }
 
   const Group = ({ children, title }: { children: React.ReactNode, title?: string }) => (
     <View style={styles.groupContainer}>
-      {title && <Text style={[styles.groupTitle, { color: theme.colors.textSecondary }]}>{title}</Text>}
-      <View style={[styles.group, { backgroundColor: theme.colors.card }]}>
+      {title && <Text style={[styles.groupTitle, { color: theme.colors.textTertiary }]}>{title}</Text>}
+      <View style={[styles.group, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderWidth: 1 }]}>
         {children}
       </View>
     </View>
@@ -103,99 +108,100 @@ export default function TaskDetailScreen() {
       disabled={!onPress}
       style={[styles.detailRow, !isLast && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.colors.border }]}
     >
-      <View style={[styles.iconBox, { backgroundColor: color + '20' }]}>
-        <Ionicons name={icon} size={20} color={color} />
+      <View style={[styles.iconBox, { backgroundColor: color ? color + '15' : theme.colors.backgroundTertiary }]}>
+        <Ionicons name={icon} size={20} color={color || theme.colors.textSecondary} />
       </View>
-      <Text style={[styles.detailLabel, { color: theme.colors.text }]}>{label}</Text>
+      <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>{label}</Text>
       <View style={styles.detailValueContainer}>
-        <Text style={[styles.detailValue, { color: theme.colors.textSecondary }]}>{value}</Text>
-        {onPress && <Ionicons name="chevron-forward" size={16} color={theme.colors.textSecondary} style={{ marginLeft: 4 }} />}
+        <Text style={[styles.detailValue, { color: theme.colors.text }]}>{value}</Text>
+        {onPress && <Ionicons name="chevron-forward" size={16} color={theme.colors.textTertiary} style={{ marginLeft: 4 }} />}
       </View>
     </TouchableOpacity>
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.backgroundSecondary }]}>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
-      {/* Custom Header */}
-      <View style={[styles.header, { paddingTop: insets.top, backgroundColor: theme.colors.backgroundSecondary }]}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.headerButton}
-        >
-          <Ionicons name="chevron-back" size={28} color={theme.colors.primary} />
-          <Text style={[styles.headerButtonText, { color: theme.colors.primary }]}>Retour</Text>
+      {/* Header */}
+      <View style={[styles.header, { paddingTop: insets.top }]}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}>
+          <Ionicons name="close" size={28} color={theme.colors.text} />
         </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={handleDelete}
-          style={styles.headerButton}
-        >
+        <TouchableOpacity onPress={handleDelete} style={styles.headerButton}>
           <Ionicons name="trash-outline" size={24} color={theme.colors.error} />
         </TouchableOpacity>
       </View>
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
-      >
-        <ScrollView
-          contentContainerStyle={[styles.content, { paddingBottom: 100 + insets.bottom }]}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Title Input */}
-          <View style={[styles.titleContainer, { backgroundColor: theme.colors.card }]}>
-            <View style={styles.checkboxContainer}>
-              <TouchableOpacity onPress={handleToggleComplete}>
-                <Ionicons
-                  name={task.completed ? "checkmark-circle" : "ellipse-outline"}
-                  size={28}
-                  color={task.completed ? theme.colors.success : theme.colors.textSecondary}
-                />
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={[styles.content]} showsVerticalScrollIndicator={false}>
+
+          {/* HERO SECTION: Title & Status */}
+          <View style={styles.heroSection}>
+            <View style={styles.titleRow}>
+              <TextInput
+                style={[styles.titleInput, { color: theme.colors.text }]}
+                value={title}
+                onChangeText={setTitle}
+                onBlur={handleTitleBlur}
+                placeholder="Titre de la tâche"
+                placeholderTextColor={theme.colors.textTertiary}
+                multiline
+                scrollEnabled={false}
+              />
+              <TouchableOpacity
+                style={[
+                  styles.statusButton,
+                  { backgroundColor: task.completed ? theme.colors.success : theme.colors.border }
+                ]}
+                onPress={handleToggleComplete}
+              >
+                <Ionicons name="checkmark" size={24} color="#FFF" />
               </TouchableOpacity>
             </View>
-            <TextInput
-              style={[styles.titleInput, { color: theme.colors.text }]}
-              value={title}
-              onChangeText={setTitle}
-              onBlur={handleTitleBlur}
-              placeholder="Titre de la tâche"
-              placeholderTextColor={theme.colors.textSecondary}
-              multiline
-              scrollEnabled={false}
-            />
+
+            {/* Quick Actions Bar */}
+            <View style={styles.quickActionsBar}>
+              <TouchableOpacity style={[styles.quickAction, { backgroundColor: theme.colors.surface }]} onPress={() => { }}>
+                <Ionicons name="calendar-outline" size={20} color={theme.colors.primary} />
+                <Text style={[styles.quickActionText, { color: theme.colors.primary }]}>
+                  {task.startDate ? format(new Date(task.startDate), 'd MMM') : 'Date'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.quickAction, { backgroundColor: theme.colors.surface }]}
+                onPress={() => {
+                  const next = task.priority === 'low' ? 'medium' : task.priority === 'medium' ? 'high' : 'low';
+                  handleUpdate({ priority: next });
+                  Haptics.selectionAsync();
+                }}
+              >
+                <Ionicons name="flag-outline" size={20} color={task.priority === 'high' ? theme.colors.error : theme.colors.warning} />
+                <Text style={[styles.quickActionText, { color: task.priority === 'high' ? theme.colors.error : theme.colors.warning }]}>
+                  {task.priority === 'high' ? 'Urgent' : task.priority === 'low' ? 'Faible' : 'Normal'}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Details Group */}
-          <Group title="DÉTAILS">
-            <View style={styles.detailsContainer}>
-              <DetailRow
-                icon="calendar"
-                label="Date"
-                value={task.startDate ? format(new Date(task.startDate), 'd MMM yyyy', { locale: fr }) : 'Aucune'}
-                color={theme.colors.primary}
-                onPress={() => { /* TODO: Date Picker */ }}
-              />
-              <DetailRow
-                icon="time"
-                label="Heure"
-                value={task.startDate ? format(new Date(task.startDate), 'HH:mm') : '--:--'}
-                color={theme.colors.info}
-                onPress={() => { /* TODO: Time Picker */ }}
-              />
-              <DetailRow
-                icon="flag"
-                label="Priorité"
-                value={task.priority === 'high' ? 'Urgent' : task.priority === 'low' ? 'Faible' : 'Normal'}
-                color={task.priority === 'high' ? theme.colors.error : theme.colors.warning}
-                isLast
-                onPress={() => {
-                  const nextPriority = task.priority === 'low' ? 'medium' : task.priority === 'medium' ? 'high' : 'low';
-                  handleUpdate({ priority: nextPriority });
-                }}
-              />
-            </View>
+          <Group title="INFORMATIONS">
+            <DetailRow
+              icon="time-outline"
+              label="Heure"
+              value={task.startDate ? format(new Date(task.startDate), 'HH:mm') : 'Toute la journée'}
+              color={theme.colors.info}
+              onPress={() => { }}
+            />
+            <DetailRow
+              icon="folder-open-outline"
+              label="Catégorie"
+              value={task.category || 'Aucune'}
+              color={theme.colors.secondary}
+              isLast
+              onPress={() => { }}
+            />
           </Group>
 
           {/* Notes Group */}
@@ -205,8 +211,8 @@ export default function TaskDetailScreen() {
               value={description}
               onChangeText={setDescription}
               onBlur={handleDescriptionBlur}
-              placeholder="Ajouter des notes..."
-              placeholderTextColor={theme.colors.textSecondary}
+              placeholder="Ajouter des détails, sous-tâches..."
+              placeholderTextColor={theme.colors.textTertiary}
               multiline
               scrollEnabled={false}
             />
@@ -236,7 +242,7 @@ export default function TaskDetailScreen() {
                   />
                 </MapView>
                 <TouchableOpacity
-                  style={[styles.mapOverlay, { backgroundColor: theme.colors.card }]}
+                  style={[styles.mapOverlay, { backgroundColor: theme.colors.surface }]}
                   onPress={() => {
                     const url = `https://www.google.com/maps/dir/?api=1&destination=${task.location!.latitude},${task.location!.longitude}`;
                     Alert.alert('Itinéraire', 'Ouverture de l\'itinéraire...');
@@ -258,8 +264,26 @@ export default function TaskDetailScreen() {
             </Group>
           )}
 
+          <View style={{ height: 100 }} />
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Sticky Action Footer */}
+      {!task.completed && (
+        <View style={[styles.footer, {
+          backgroundColor: theme.colors.background,
+          borderTopColor: theme.colors.border,
+          paddingBottom: insets.bottom + 16
+        }]}>
+          <Button
+            title="Démarrer Focus"
+            onPress={handleStartFocus}
+            size="large"
+            icon={<Ionicons name="play" size={20} color="#FFF" style={{ marginRight: 8 }} />}
+            style={{ flex: 1 }}
+          />
+        </View>
+      )}
     </View>
   );
 }
@@ -273,70 +297,87 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingBottom: 12,
-    zIndex: 10,
+    paddingVertical: 12,
   },
   headerButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
     padding: 8,
   },
-  headerButtonText: {
-    fontSize: 17,
-    marginLeft: 4,
-  },
   content: {
-    paddingTop: 20,
+    paddingTop: 8,
+    paddingHorizontal: 20,
   },
-  titleContainer: {
+  heroSection: {
+    marginBottom: 32,
+  },
+  titleRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    padding: 16,
-    marginBottom: 24,
-    marginHorizontal: 16,
-    borderRadius: 12,
-  },
-  checkboxContainer: {
-    marginRight: 12,
-    marginTop: 4,
+    gap: 16,
+    marginBottom: 20,
   },
   titleInput: {
     flex: 1,
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: 28,
+    fontWeight: '700',
     paddingTop: 0,
+    lineHeight: 34,
+  },
+  statusButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  quickActionsBar: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  quickAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    gap: 6,
+  },
+  quickActionText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   groupContainer: {
     marginBottom: 24,
-    paddingHorizontal: 16,
   },
   groupTitle: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
     marginBottom: 8,
-    marginLeft: 16,
+    marginLeft: 4,
     textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   group: {
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  detailsContainer: {
+    borderRadius: 16,
     overflow: 'hidden',
   },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    minHeight: 58,
+    minHeight: 56,
   },
   iconBox: {
-    width: 30,
-    height: 30,
-    borderRadius: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 16,
   },
   detailLabel: {
     fontSize: 16,
@@ -348,16 +389,18 @@ const styles = StyleSheet.create({
   },
   detailValue: {
     fontSize: 16,
+    fontWeight: '500',
   },
   notesInput: {
     padding: 16,
     fontSize: 16,
-    minHeight: 100,
+    minHeight: 120,
     textAlignVertical: 'top',
+    lineHeight: 24,
   },
   mapContainer: {
-    height: 200,
-    borderRadius: 12,
+    height: 180,
+    borderRadius: 16,
     overflow: 'hidden',
     position: 'relative',
   },
@@ -376,7 +419,7 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: 3,
     elevation: 3,
   },
   mapInfo: {
@@ -384,17 +427,26 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   mapTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
   },
   mapAddress: {
-    fontSize: 13,
+    fontSize: 12,
   },
   navButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  footer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
   },
 });
