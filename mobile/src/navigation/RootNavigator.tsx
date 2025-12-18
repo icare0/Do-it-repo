@@ -31,6 +31,7 @@ import FocusModeScreen from '@/screens/FocusModeScreen';
 import StatsScreen from '@/screens/StatsScreen';
 import { SmartAssistantScreen } from '@/screens/SmartAssistantScreen';
 import WidgetSetupScreen from '@/screens/WidgetSetupScreen';
+import AIAnalyticsScreen from '@/screens/AIAnalyticsScreen';
 
 import { RootStackParamList } from '@/types';
 
@@ -269,6 +270,14 @@ export default function RootNavigator() {
             <Stack.Screen
               name="WidgetSetup"
               component={WidgetSetupScreen}
+              options={{
+                presentation: 'modal',
+                animation: 'slide_from_right',
+              }}
+            />
+            <Stack.Screen
+              name="AIAnalytics"
+              component={AIAnalyticsScreen}
               options={{
                 presentation: 'modal',
                 animation: 'slide_from_right',

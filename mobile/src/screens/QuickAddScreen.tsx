@@ -24,11 +24,12 @@ import { useThemeStore } from '@/store/themeStore';
 import { useTaskStore } from '@/store/taskStore';
 import { useAuthStore } from '@/store/authStore';
 import { getTheme, spacing, borderRadius } from '@/theme';
-import { nlpService } from '@/services/nlpService';
+import { aiEngine } from '@/services/aiEngine'; // 🆕 AI Engine
 import { smartTaskService } from '@/services/smartTaskService';
 import { notificationService } from '@/services/notificationService';
 import { database, TaskModel } from '@/database';
 import { syncService } from '@/services/syncService';
+import { ActivityIndicator } from 'react-native';
 
 export default function QuickAddScreen() {
   const navigation = useNavigation();
@@ -42,27 +43,53 @@ export default function QuickAddScreen() {
   const [input, setInput] = useState((route.params as any)?.prefillText || '');
   const [parsedTask, setParsedTask] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [parsing, setParsing] = useState(false); // 🆕 AI parsing state
   const [showSmartPrompt, setShowSmartPrompt] = useState(false);
   const [currentPrompt, setCurrentPrompt] = useState<any>(null);
-  const [enrichedTitle, setEnrichedTitle] = useState('');
+  const [aiInitialized, setAiInitialized] = useState(false); // 🆕 AI init state
 
+  // 🆕 Initialize AI Engine on mount
   useEffect(() => {
-    if (input.length > 2) {
-      const parsed = nlpService.parseQuickAdd(input);
-      const { enrichedTitle: autoEnriched, wasEnriched } = smartTaskService.enrichTaskTitle(input);
+    aiEngine.initialize().then(() => {
+      setAiInitialized(true);
+      console.log('✅ AI Engine ready');
+    }).catch(err => {
+      console.error('Failed to initialize AI:', err);
+      setAiInitialized(true); // Continue anyway with fallback
+    });
+  }, []);
 
-      if (wasEnriched) {
-        parsed.title = smartTaskService.enrichTaskTitle(parsed.title).enrichedTitle;
-        setEnrichedTitle(autoEnriched);
-      } else {
-        setEnrichedTitle('');
-      }
-      setParsedTask(parsed);
+  // 🆕 Parse with AI Engine
+  useEffect(() => {
+    if (input.length > 2 && aiInitialized) {
+      parseWithAI();
     } else {
       setParsedTask(null);
-      setEnrichedTitle('');
     }
-  }, [input]);
+  }, [input, aiInitialized]);
+
+  async function parseWithAI() {
+    setParsing(true);
+    try {
+      const result = await aiEngine.parseTask(input, {
+        userId: user?.id || '',
+        currentTime: new Date()
+      });
+      setParsedTask(result);
+    } catch (error) {
+      console.error('AI parsing error:', error);
+      // Fallback to basic parsing
+      setParsedTask({
+        title: input,
+        originalInput: input,
+        confidence: 0.3,
+        hasSpecificTime: false,
+        priority: 'medium'
+      });
+    } finally {
+      setParsing(false);
+    }
+  }
 
   async function handleCreate() {
     if (!input.trim()) return;
@@ -115,6 +142,15 @@ export default function QuickAddScreen() {
           if (taskData.duration) task.duration = taskData.duration;
           if (taskData.recurringPattern) task.recurringPattern = taskData.recurringPattern;
           if (taskData.location) task.location = taskData.location;
+
+          // 🆕 AI Engine fields
+          if (taskData.hasSpecificTime !== undefined) task.hasSpecificTime = taskData.hasSpecificTime;
+          if (taskData.timeOfDay) task.timeOfDay = taskData.timeOfDay;
+          if (taskData.suggestedTimeSlot) task.suggestedTimeSlot = taskData.suggestedTimeSlot;
+          if (taskData.deadline) task.deadline = taskData.deadline;
+          task.originalInput = input;
+          if (taskData.confidence) task.parsingConfidence = taskData.confidence;
+          if (taskData.intent) task.detectedIntent = taskData.intent;
         });
       });
 
@@ -131,6 +167,14 @@ export default function QuickAddScreen() {
         location: taskData.location,
         createdAt: new Date(),
         updatedAt: new Date(),
+        // 🆕 AI Engine fields
+        hasSpecificTime: taskData.hasSpecificTime,
+        timeOfDay: taskData.timeOfDay,
+        suggestedTimeSlot: taskData.suggestedTimeSlot,
+        deadline: taskData.deadline,
+        originalInput: input,
+        parsingConfidence: taskData.confidence,
+        detectedIntent: taskData.intent,
       });
 
       await syncService.addToSyncQueue('task', newTask.id, 'create', newTask._raw);

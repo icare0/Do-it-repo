@@ -124,6 +124,34 @@ const taskSchema = new Schema<ITask>(
         order: Number,
       },
     ],
+    // 🆕 AI Engine fields
+    hasSpecificTime: {
+      type: Boolean,
+    },
+    timeOfDay: {
+      type: String,
+      enum: ['morning', 'afternoon', 'evening', 'night'],
+    },
+    suggestedTimeSlot: {
+      start: Number,
+      end: Number,
+    },
+    deadline: {
+      type: Date,
+    },
+    originalInput: {
+      type: String,
+      trim: true,
+    },
+    parsingConfidence: {
+      type: Number,
+      min: 0,
+      max: 1,
+    },
+    detectedIntent: {
+      type: String,
+      trim: true,
+    },
   },
   {
     timestamps: true,

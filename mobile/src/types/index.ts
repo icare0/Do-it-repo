@@ -108,4 +108,5 @@ export type RootStackParamList = {
   SmartAssistant: undefined;
   Stats: undefined;
   WidgetSetup: undefined;
+  AIAnalytics: undefined;
 };
