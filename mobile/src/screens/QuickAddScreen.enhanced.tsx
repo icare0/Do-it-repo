@@ -1,3 +1,8 @@
+/**
+ * Enhanced QuickAddScreen with Custom AI Engine
+ * Uses the new AI Engine for intelligent task comprehension
+ */
+
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -9,29 +14,27 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { format, addDays } from 'date-fns';
+import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
 import { Button } from '@/components/ui/Button';
-import { IconButton } from '@/components/ui/IconButton';
-import { Badge } from '@/components/ui/Badge';
 import { SmartPromptModal } from '@/components/SmartPromptModal';
 import { useThemeStore } from '@/store/themeStore';
 import { useTaskStore } from '@/store/taskStore';
 import { useAuthStore } from '@/store/authStore';
-import { getTheme, spacing, borderRadius } from '@/theme';
-import { aiEngine } from '@/services/aiEngine'; // 🆕 AI Engine
+import { getTheme } from '@/theme';
+import { aiEngine, ParsedResult } from '@/services/aiEngine';
 import { smartTaskService } from '@/services/smartTaskService';
 import { notificationService } from '@/services/notificationService';
 import { database, TaskModel } from '@/database';
 import { syncService } from '@/services/syncService';
-import { ActivityIndicator } from 'react-native';
 
-export default function QuickAddScreen() {
+export default function QuickAddScreenEnhanced() {
   const navigation = useNavigation();
   const route = useRoute();
   const insets = useSafeAreaInsets();
@@ -41,25 +44,25 @@ export default function QuickAddScreen() {
   const { user } = useAuthStore();
 
   const [input, setInput] = useState((route.params as any)?.prefillText || '');
-  const [parsedTask, setParsedTask] = useState<any>(null);
+  const [parsedTask, setParsedTask] = useState<ParsedResult | null>(null);
   const [loading, setLoading] = useState(false);
-  const [parsing, setParsing] = useState(false); // 🆕 AI parsing state
+  const [parsing, setParsing] = useState(false);
   const [showSmartPrompt, setShowSmartPrompt] = useState(false);
   const [currentPrompt, setCurrentPrompt] = useState<any>(null);
-  const [aiInitialized, setAiInitialized] = useState(false); // 🆕 AI init state
+  const [aiInitialized, setAiInitialized] = useState(false);
 
-  // 🆕 Initialize AI Engine on mount
+  // Initialize AI Engine on mount
   useEffect(() => {
     aiEngine.initialize().then(() => {
       setAiInitialized(true);
-      console.log('✅ AI Engine ready');
+      console.log('✅ AI Engine ready for QuickAdd');
     }).catch(err => {
-      console.error('Failed to initialize AI:', err);
-      setAiInitialized(true); // Continue anyway with fallback
+      console.error('Failed to initialize AI Engine:', err);
+      Alert.alert('Erreur', "L'IA n'a pas pu être initialisée. Les fonctionnalités de base restent disponibles.");
     });
   }, []);
 
-  // 🆕 Parse with AI Engine
+  // Parse input with AI Engine
   useEffect(() => {
     if (input.length > 2 && aiInitialized) {
       parseWithAI();
@@ -72,12 +75,14 @@ export default function QuickAddScreen() {
     setParsing(true);
     try {
       const result = await aiEngine.parseTask(input, {
-        userId: user?.id || '',
+        userId: user!.id,
+        userHabits: undefined, // TODO: Get from habit learning service
         currentTime: new Date()
       });
+
       setParsedTask(result);
     } catch (error) {
-      console.error('AI parsing error:', error);
+      console.error('Error parsing with AI:', error);
       // Fallback to basic parsing
       setParsedTask({
         title: input,
@@ -95,25 +100,29 @@ export default function QuickAddScreen() {
     if (!input.trim()) return;
     if (!user) return;
 
+    // Check for smart prompts (like location clarification)
     const smartPrompt = smartTaskService.detectSmartPrompt(input);
-    if (smartPrompt) {
+    if (smartPrompt && parsedTask && !parsedTask.location) {
       setCurrentPrompt(smartPrompt);
       setShowSmartPrompt(true);
       return;
     }
+
     await createTask();
   }
 
   async function handleSmartPromptSubmit(answer: string) {
-    if (currentPrompt) {
+    if (currentPrompt && parsedTask) {
       if (!currentPrompt.alwaysAsk) {
         await smartTaskService.saveEnrichment(currentPrompt.contextKey, answer);
       }
-      if (currentPrompt.alwaysAsk && parsedTask) {
-        const regex = new RegExp(`\\b${currentPrompt.contextKey}\\b`, 'gi');
-        parsedTask.title = parsedTask.title.replace(regex, answer);
+
+      // Add location to parsed task
+      if (!parsedTask.location) {
+        parsedTask.location = { name: answer };
       }
     }
+
     setShowSmartPrompt(false);
     setCurrentPrompt(null);
     await createTask();
@@ -122,74 +131,86 @@ export default function QuickAddScreen() {
   async function createTask() {
     try {
       setLoading(true);
-      const taskData = parsedTask || { title: input };
-      const { enrichedTitle: finalTitle, location: enrichedLocation } =
-        smartTaskService.enrichTaskTitle(taskData.title);
 
-      taskData.title = finalTitle;
-      if (enrichedLocation && !taskData.location?.latitude) {
-        taskData.location = enrichedLocation;
+      if (!parsedTask) {
+        Alert.alert('Erreur', 'Impossible de créer la tâche');
+        return;
       }
 
+      // Create task in database
       const newTask = await database.write(async () => {
         return await database.get<TaskModel>('tasks').create((task) => {
           task.userId = user!.id;
-          task.title = taskData.title;
-          task.priority = taskData.priority || 'medium';
+          task.title = parsedTask.title;
+          task.priority = parsedTask.priority || 'medium';
           task.completed = false;
-          task.category = taskData.category;
-          if (taskData.date) task.startDate = taskData.date;
-          if (taskData.duration) task.duration = taskData.duration;
-          if (taskData.recurringPattern) task.recurringPattern = taskData.recurringPattern;
-          if (taskData.location) task.location = taskData.location;
+
+          // Core fields
+          if (parsedTask.category) task.category = parsedTask.category;
+          if (parsedTask.date) task.startDate = parsedTask.date;
+          if (parsedTask.endDate) task.endDate = parsedTask.endDate;
+          if (parsedTask.duration) task.duration = parsedTask.duration;
+          if (parsedTask.location) task.location = parsedTask.location as any;
 
           // 🆕 AI Engine fields
-          if (taskData.hasSpecificTime !== undefined) task.hasSpecificTime = taskData.hasSpecificTime;
-          if (taskData.timeOfDay) task.timeOfDay = taskData.timeOfDay;
-          if (taskData.suggestedTimeSlot) task.suggestedTimeSlot = taskData.suggestedTimeSlot;
-          if (taskData.deadline) task.deadline = taskData.deadline;
-          task.originalInput = input;
-          if (taskData.confidence) task.parsingConfidence = taskData.confidence;
-          if (taskData.intent) task.detectedIntent = taskData.intent;
+          task.hasSpecificTime = parsedTask.hasSpecificTime;
+          if (parsedTask.timeOfDay) task.timeOfDay = parsedTask.timeOfDay;
+          if (parsedTask.suggestedTimeSlot) task.suggestedTimeSlot = parsedTask.suggestedTimeSlot;
+          if (parsedTask.deadline) task.deadline = parsedTask.deadline;
+          task.originalInput = input; // Save original for learning
+          task.parsingConfidence = parsedTask.confidence;
+          if (parsedTask.intent) task.detectedIntent = parsedTask.intent;
+
+          if (parsedTask.recurringPattern) {
+            task.recurringPattern = parsedTask.recurringPattern as any;
+          }
         });
       });
 
+      // Add to store
       addTask({
         id: newTask.id,
         userId: user!.id,
-        title: taskData.title,
+        title: parsedTask.title,
         completed: false,
-        priority: taskData.priority || 'medium',
-        category: taskData.category,
-        startDate: taskData.date,
-        duration: taskData.duration,
-        recurringPattern: taskData.recurringPattern,
-        location: taskData.location,
+        priority: parsedTask.priority || 'medium',
+        category: parsedTask.category,
+        startDate: parsedTask.date,
+        endDate: parsedTask.endDate,
+        duration: parsedTask.duration,
+        location: parsedTask.location as any,
+        recurringPattern: parsedTask.recurringPattern as any,
         createdAt: new Date(),
         updatedAt: new Date(),
-        // 🆕 AI Engine fields
-        hasSpecificTime: taskData.hasSpecificTime,
-        timeOfDay: taskData.timeOfDay,
-        suggestedTimeSlot: taskData.suggestedTimeSlot,
-        deadline: taskData.deadline,
+        // AI fields
+        hasSpecificTime: parsedTask.hasSpecificTime,
+        timeOfDay: parsedTask.timeOfDay,
+        suggestedTimeSlot: parsedTask.suggestedTimeSlot,
+        deadline: parsedTask.deadline,
         originalInput: input,
-        parsingConfidence: taskData.confidence,
-        detectedIntent: taskData.intent,
-      });
+        parsingConfidence: parsedTask.confidence,
+        detectedIntent: parsedTask.intent
+      } as any);
 
+      // Sync
       await syncService.addToSyncQueue('task', newTask.id, 'create', newTask._raw);
+
+      // Learn from task
       await smartTaskService.learnFromTask(newTask._raw as any);
 
-      if (taskData.date) {
+      // Schedule notification if needed
+      if (parsedTask.date && parsedTask.hasSpecificTime) {
         await notificationService.scheduleTaskNotification({
           id: newTask.id,
-          title: taskData.title,
-          startDate: taskData.date,
+          title: parsedTask.title,
+          startDate: parsedTask.date,
           minutesBefore: 15,
         });
       }
 
+      console.log('✅ Task created with AI understanding:', newTask._raw);
       navigation.goBack();
+
     } catch (error) {
       console.error('Create task error:', error);
       Alert.alert('Erreur', 'Impossible de créer la tâche');
@@ -199,7 +220,10 @@ export default function QuickAddScreen() {
   }
 
   const QuickChip = ({ label, icon, onPress }: any) => (
-    <TouchableOpacity onPress={onPress} style={[styles.quickChip, { backgroundColor: theme.colors.surfaceSecondary }]}>
+    <TouchableOpacity
+      onPress={onPress}
+      style={[styles.quickChip, { backgroundColor: theme.colors.surfaceSecondary }]}
+    >
       <Ionicons name={icon} size={16} color={theme.colors.textSecondary} />
       <Text style={[styles.quickChipText, { color: theme.colors.text }]}>{label}</Text>
     </TouchableOpacity>
@@ -208,7 +232,7 @@ export default function QuickAddScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        {/* Minimal Header */}
+        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton}>
             <Ionicons name="close" size={28} color={theme.colors.text} />
@@ -219,6 +243,7 @@ export default function QuickAddScreen() {
 
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
           <View style={styles.content}>
+            {/* Input */}
             <TextInput
               style={[styles.input, { color: theme.colors.text }]}
               placeholder="Qu'avez-vous en tête ?"
@@ -229,27 +254,89 @@ export default function QuickAddScreen() {
               autoFocus
             />
 
-            {/* Smart Detection Visualization */}
-            {parsedTask && (
+            {/* AI Parsing Indicator */}
+            {parsing && (
+              <View style={styles.parsingIndicator}>
+                <ActivityIndicator size="small" color={theme.colors.primary} />
+                <Text style={[styles.parsingText, { color: theme.colors.textSecondary }]}>
+                  L'IA analyse...
+                </Text>
+              </View>
+            )}
+
+            {/* Parsed Information */}
+            {parsedTask && !parsing && (
               <View style={styles.detectedContainer}>
+                {/* Date chip */}
                 {parsedTask.date && (
                   <View style={[styles.detectedChip, { backgroundColor: theme.colors.primary + '15' }]}>
                     <Ionicons name="calendar" size={14} color={theme.colors.primary} />
                     <Text style={[styles.detectedText, { color: theme.colors.primary }]}>
-                      {format(parsedTask.date, 'd MMM HH:mm', { locale: fr })}
+                      {parsedTask.hasSpecificTime
+                        ? format(parsedTask.date, 'd MMM HH:mm', { locale: fr })
+                        : format(parsedTask.date, 'd MMM', { locale: fr }) + ' (journée)'}
                     </Text>
                   </View>
                 )}
+
+                {/* Time of day chip */}
+                {parsedTask.timeOfDay && !parsedTask.hasSpecificTime && (
+                  <View style={[styles.detectedChip, { backgroundColor: theme.colors.secondary + '15' }]}>
+                    <Ionicons
+                      name={
+                        parsedTask.timeOfDay === 'morning' ? 'sunny' :
+                        parsedTask.timeOfDay === 'afternoon' ? 'partly-sunny' :
+                        parsedTask.timeOfDay === 'evening' ? 'moon' : 'moon-outline'
+                      }
+                      size={14}
+                      color={theme.colors.secondary}
+                    />
+                    <Text style={[styles.detectedText, { color: theme.colors.secondary }]}>
+                      {parsedTask.timeOfDay === 'morning' && 'Matin'}
+                      {parsedTask.timeOfDay === 'afternoon' && 'Après-midi'}
+                      {parsedTask.timeOfDay === 'evening' && 'Soir'}
+                      {parsedTask.timeOfDay === 'night' && 'Nuit'}
+                    </Text>
+                  </View>
+                )}
+
+                {/* Priority chip */}
                 {parsedTask.priority === 'high' && (
                   <View style={[styles.detectedChip, { backgroundColor: theme.colors.error + '15' }]}>
                     <Ionicons name="flag" size={14} color={theme.colors.error} />
                     <Text style={[styles.detectedText, { color: theme.colors.error }]}>Urgent</Text>
                   </View>
                 )}
+
+                {/* Category chip */}
                 {parsedTask.category && (
-                  <View style={[styles.detectedChip, { backgroundColor: theme.colors.secondary + '15' }]}>
-                    <Ionicons name="folder" size={14} color={theme.colors.secondary} />
-                    <Text style={[styles.detectedText, { color: theme.colors.secondary }]}>{parsedTask.category}</Text>
+                  <View style={[styles.detectedChip, { backgroundColor: theme.colors.accent + '15' }]}>
+                    <Ionicons name="folder" size={14} color={theme.colors.accent} />
+                    <Text style={[styles.detectedText, { color: theme.colors.accent }]}>
+                      {parsedTask.category}
+                    </Text>
+                  </View>
+                )}
+
+                {/* Intent chip */}
+                {parsedTask.intent && (
+                  <View style={[styles.detectedChip, { backgroundColor: theme.colors.success + '15' }]}>
+                    <Ionicons name="bulb" size={14} color={theme.colors.success} />
+                    <Text style={[styles.detectedText, { color: theme.colors.success }]}>
+                      {parsedTask.intent}
+                    </Text>
+                  </View>
+                )}
+
+                {/* Confidence indicator */}
+                {parsedTask.confidence !== undefined && (
+                  <View style={styles.confidenceContainer}>
+                    <Text style={[styles.confidenceText, { color: theme.colors.textTertiary }]}>
+                      Confiance: {(parsedTask.confidence * 100).toFixed(0)}%
+                    </Text>
+                    {parsedTask.confidence < 0.7 && (
+                      <Ionicons name="help-circle" size={16} color={theme.colors.warning} />
+                    )}
                   </View>
                 )}
               </View>
@@ -257,24 +344,25 @@ export default function QuickAddScreen() {
 
             {/* Quick Suggestions */}
             <View style={styles.suggestionsContainer}>
-              <Text style={[styles.suggestionsLabel, { color: theme.colors.textTertiary }]}>SUGGESTIONS</Text>
+              <Text style={[styles.suggestionsLabel, { color: theme.colors.textTertiary }]}>
+                SUGGESTIONS RAPIDES
+              </Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.suggestionsScroll}>
-                <QuickChip label="Demain matin" icon="sunny-outline" onPress={() => setInput(input + ' demain 9h')} />
+                <QuickChip label="Demain matin" icon="sunny-outline" onPress={() => setInput(input + ' demain matin')} />
                 <QuickChip label="Ce weekend" icon="cafe-outline" onPress={() => setInput(input + ' samedi')} />
-                <QuickChip label="Urgent" icon="flag-outline" onPress={() => setInput(input + ' !urgent')} />
+                <QuickChip label="Urgent" icon="flag-outline" onPress={() => setInput(input + ' urgent')} />
                 <QuickChip label="Perso" icon="person-outline" onPress={() => setInput(input + ' #perso')} />
                 <QuickChip label="Travail" icon="briefcase-outline" onPress={() => setInput(input + ' #travail')} />
               </ScrollView>
             </View>
-
           </View>
 
-          {/* Floating Create Button */}
+          {/* Create Button */}
           <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
             <Button
-              title={loading ? "Création..." : "Ajouter la tâche"}
+              title={loading ? "Création..." : "Créer la tâche"}
               onPress={handleCreate}
-              disabled={!input.trim() || loading}
+              disabled={!input.trim() || loading || parsing}
               fullWidth
               size="large"
             />
@@ -282,14 +370,15 @@ export default function QuickAddScreen() {
         </KeyboardAvoidingView>
       </SafeAreaView>
 
-      {/* Parsing Help / Examples */}
-      {parsedTask && (
+      {/* AI Active Indicator */}
+      {parsedTask && !parsing && aiInitialized && (
         <View style={[styles.magicIndicator, { top: insets.top + 16 }]}>
           <Ionicons name="sparkles" size={16} color={theme.colors.primary} />
           <Text style={[styles.magicText, { color: theme.colors.primary }]}>IA Active</Text>
         </View>
       )}
 
+      {/* Smart Prompt Modal */}
       {currentPrompt && (
         <SmartPromptModal
           visible={showSmartPrompt}
@@ -298,7 +387,10 @@ export default function QuickAddScreen() {
           icon={currentPrompt.icon}
           suggestions={currentPrompt.suggestions}
           onSubmit={handleSmartPromptSubmit}
-          onDismiss={() => { setShowSmartPrompt(false); setCurrentPrompt(null); }}
+          onDismiss={() => {
+            setShowSmartPrompt(false);
+            setCurrentPrompt(null);
+          }}
         />
       )}
     </View>
@@ -334,6 +426,15 @@ const styles = StyleSheet.create({
     minHeight: 100,
     textAlignVertical: 'top',
   },
+  parsingIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 12,
+  },
+  parsingText: {
+    fontSize: 14,
+  },
   detectedContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -343,39 +444,46 @@ const styles = StyleSheet.create({
   detectedChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
     gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
   },
   detectedText: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '500',
+  },
+  confidenceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+  },
+  confidenceText: {
+    fontSize: 12,
   },
   suggestionsContainer: {
-    marginTop: 40,
+    marginTop: 24,
   },
   suggestionsLabel: {
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.5,
     marginBottom: 12,
-    letterSpacing: 1,
   },
   suggestionsScroll: {
-    gap: 10,
-    paddingRight: 24,
+    gap: 8,
   },
   quickChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    gap: 8,
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
   },
   quickChipText: {
     fontSize: 14,
-    fontWeight: '500',
   },
   footer: {
     paddingHorizontal: 24,
@@ -383,21 +491,22 @@ const styles = StyleSheet.create({
   },
   magicIndicator: {
     position: 'absolute',
-    right: 24,
+    right: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 10,
+    gap: 6,
+    paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
-    gap: 4,
-    elevation: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
+    elevation: 3,
   },
   magicText: {
     fontSize: 12,
-    fontWeight: '700',
-  }
+    fontWeight: '600',
+  },
 });

@@ -73,6 +73,17 @@ export interface ITask extends Document {
     completed: boolean;
     order: number;
   }>;
+  // 🆕 AI Engine fields
+  hasSpecificTime?: boolean;
+  timeOfDay?: 'morning' | 'afternoon' | 'evening' | 'night';
+  suggestedTimeSlot?: {
+    start: number;
+    end: number;
+  };
+  deadline?: Date;
+  originalInput?: string;
+  parsingConfidence?: number;
+  detectedIntent?: string;
   createdAt: Date;
   updatedAt: Date;
 }
