@@ -21,6 +21,8 @@ import { Dimensions } from 'react-native';
 import { useThemeStore } from '@/store/themeStore';
 import { getTheme } from '@/theme';
 import { aiEngine, AccuracyMetrics, LearnedPattern } from '@/services/aiEngine';
+import { unifiedLearningService } from '@/services/unifiedLearningService';
+import { smartTaskService } from '@/services/smartTaskService';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -32,7 +34,10 @@ export default function AIAnalyticsScreen() {
   const [metrics, setMetrics] = useState<AccuracyMetrics | null>(null);
   const [learnedPatterns, setLearnedPatterns] = useState<LearnedPattern[]>([]);
   const [analyticsData, setAnalyticsData] = useState<any>(null);
+  const [unifiedAnalytics, setUnifiedAnalytics] = useState<any>(null);
+  const [smartEnrichments, setSmartEnrichments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'overview' | 'patterns' | 'enrichments'>('overview');
 
   useEffect(() => {
     loadData();
@@ -41,14 +46,19 @@ export default function AIAnalyticsScreen() {
   async function loadData() {
     try {
       await aiEngine.initialize();
+      await smartTaskService.initialize();
 
       const metricsData = aiEngine.getMetrics();
       const patterns = aiEngine.getLearnedPatterns();
       const analytics = aiEngine.getAnalytics();
+      const unified = unifiedLearningService.getUnifiedAnalytics();
+      const enrichments = smartTaskService.getLearnedContexts();
 
       setMetrics(metricsData);
       setLearnedPatterns(patterns);
       setAnalyticsData(analytics);
+      setUnifiedAnalytics(unified);
+      setSmartEnrichments(enrichments);
     } catch (error) {
       console.error('Error loading AI analytics:', error);
       Alert.alert('Erreur', "Impossible de charger les analytics de l'IA");
@@ -68,6 +78,24 @@ export default function AIAnalyticsScreen() {
           style: 'destructive',
           onPress: async () => {
             await aiEngine.deleteLearnedPattern(key);
+            await loadData();
+          }
+        }
+      ]
+    );
+  }
+
+  async function handleDeleteEnrichment(keyword: string) {
+    Alert.alert(
+      'Supprimer l\'enrichissement',
+      `Voulez-vous que l'IA oublie "${keyword}" ?`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: async () => {
+            await smartTaskService.deleteEnrichment(keyword);
             await loadData();
           }
         }
@@ -304,10 +332,99 @@ export default function AIAnalyticsScreen() {
             </View>
           )}
 
+          {/* Unified Stats */}
+          {unifiedAnalytics && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                Apprentissage Unifié
+              </Text>
+
+              <View style={[styles.unifiedCard, { backgroundColor: theme.colors.surface }]}>
+                <View style={styles.unifiedRow}>
+                  <Ionicons name="bulb" size={20} color={theme.colors.primary} />
+                  <Text style={[styles.unifiedLabel, { color: theme.colors.textSecondary }]}>
+                    Connaissances totales
+                  </Text>
+                  <Text style={[styles.unifiedValue, { color: theme.colors.text }]}>
+                    {unifiedAnalytics.combined.totalLearnings}
+                  </Text>
+                </View>
+                <View style={styles.unifiedRow}>
+                  <Ionicons name="layers" size={20} color={theme.colors.success} />
+                  <Text style={[styles.unifiedLabel, { color: theme.colors.textSecondary }]}>
+                    Patterns IA
+                  </Text>
+                  <Text style={[styles.unifiedValue, { color: theme.colors.text }]}>
+                    {unifiedAnalytics.ai.learnedPatterns}
+                  </Text>
+                </View>
+                <View style={styles.unifiedRow}>
+                  <Ionicons name="location" size={20} color={theme.colors.warning} />
+                  <Text style={[styles.unifiedLabel, { color: theme.colors.textSecondary }]}>
+                    Enrichissements
+                  </Text>
+                  <Text style={[styles.unifiedValue, { color: theme.colors.text }]}>
+                    {unifiedAnalytics.smart.enrichments}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* Smart Enrichments */}
+          {smartEnrichments.length > 0 && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                Enrichissements Contextuels ({smartEnrichments.length})
+              </Text>
+
+              <View style={styles.patternsList}>
+                {smartEnrichments.map((enrichment, index) => (
+                  <View key={index} style={[styles.patternItem, { backgroundColor: theme.colors.surface }]}>
+                    <View style={styles.patternContent}>
+                      <View style={styles.patternHeader}>
+                        <Text style={[styles.patternKey, { color: theme.colors.text }]}>
+                          {enrichment.keyword}
+                        </Text>
+                        <View style={[styles.patternTypeBadge, { backgroundColor: theme.colors.warning + '20' }]}>
+                          <Text style={[styles.patternType, { color: theme.colors.warning }]}>
+                            enrichment
+                          </Text>
+                        </View>
+                      </View>
+
+                      <Text style={[styles.patternReplacement, { color: theme.colors.textSecondary }]}>
+                        → {enrichment.specificValue}
+                      </Text>
+
+                      <View style={styles.patternStats}>
+                        <Text style={[styles.patternStat, { color: theme.colors.textTertiary }]}>
+                          Utilisé {enrichment.usageCount}x
+                        </Text>
+                        {enrichment.location && (
+                          <Text style={[styles.patternStat, { color: theme.colors.textTertiary }]}>
+                            📍 {enrichment.location.name}
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+
+                    <TouchableOpacity
+                      onPress={() => handleDeleteEnrichment(enrichment.keyword)}
+                      style={styles.deleteButton}
+                    >
+                      <Ionicons name="trash-outline" size={20} color={theme.colors.error} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+
           {/* Learned Patterns */}
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-              Patterns Appris ({learnedPatterns.length})
+              Patterns IA ({learnedPatterns.length})
             </Text>
 
             {learnedPatterns.length === 0 ? (
@@ -566,5 +683,23 @@ const styles = StyleSheet.create({
   },
   predictionConfidence: {
     fontSize: 12,
+  },
+  unifiedCard: {
+    padding: 16,
+    borderRadius: 16,
+    gap: 12,
+  },
+  unifiedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  unifiedLabel: {
+    flex: 1,
+    fontSize: 14,
+  },
+  unifiedValue: {
+    fontSize: 16,
+    fontWeight: '700',
   },
 });

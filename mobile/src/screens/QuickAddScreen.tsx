@@ -26,6 +26,7 @@ import { useAuthStore } from '@/store/authStore';
 import { getTheme, spacing, borderRadius } from '@/theme';
 import { aiEngine } from '@/services/aiEngine'; // 🆕 AI Engine
 import { smartTaskService } from '@/services/smartTaskService';
+import { unifiedLearningService } from '@/services/unifiedLearningService'; // 🆕 Unified Learning
 import { notificationService } from '@/services/notificationService';
 import { database, TaskModel } from '@/database';
 import { syncService } from '@/services/syncService';
@@ -107,7 +108,8 @@ export default function QuickAddScreen() {
   async function handleSmartPromptSubmit(answer: string) {
     if (currentPrompt) {
       if (!currentPrompt.alwaysAsk) {
-        await smartTaskService.saveEnrichment(currentPrompt.contextKey, answer);
+        // 🆕 Use unified learning service
+        await unifiedLearningService.learnFromEnrichment(currentPrompt.contextKey, answer);
       }
       if (currentPrompt.alwaysAsk && parsedTask) {
         const regex = new RegExp(`\\b${currentPrompt.contextKey}\\b`, 'gi');
@@ -178,7 +180,33 @@ export default function QuickAddScreen() {
       });
 
       await syncService.addToSyncQueue('task', newTask.id, 'create', newTask._raw);
-      await smartTaskService.learnFromTask(newTask._raw as any);
+
+      // 🆕 Unified learning - learns from both AI predictions and smart enrichments
+      await unifiedLearningService.learnFromTaskCreation(
+        {
+          id: newTask.id,
+          userId: user!.id,
+          title: taskData.title,
+          completed: false,
+          priority: taskData.priority || 'medium',
+          category: taskData.category,
+          startDate: taskData.date,
+          duration: taskData.duration,
+          recurringPattern: taskData.recurringPattern,
+          location: taskData.location,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          hasSpecificTime: taskData.hasSpecificTime,
+          timeOfDay: taskData.timeOfDay,
+          suggestedTimeSlot: taskData.suggestedTimeSlot,
+          deadline: taskData.deadline,
+          originalInput: input,
+          parsingConfidence: taskData.confidence,
+          detectedIntent: taskData.intent,
+        },
+        input,
+        parsedTask
+      );
 
       if (taskData.date) {
         await notificationService.scheduleTaskNotification({
