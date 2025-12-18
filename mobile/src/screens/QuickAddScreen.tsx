@@ -26,6 +26,7 @@ import { useAuthStore } from '@/store/authStore';
 import { getTheme, spacing, borderRadius } from '@/theme';
 import { aiEngine } from '@/services/aiEngine'; // 🆕 AI Engine
 import { smartTaskService } from '@/services/smartTaskService';
+import { unifiedLearningService } from '@/services/unifiedLearningService'; // 🆕 Unified Learning
 import { notificationService } from '@/services/notificationService';
 import { database, TaskModel } from '@/database';
 import { syncService } from '@/services/syncService';
@@ -107,7 +108,12 @@ export default function QuickAddScreen() {
   async function handleSmartPromptSubmit(answer: string) {
     if (currentPrompt) {
       if (!currentPrompt.alwaysAsk) {
-        await smartTaskService.saveEnrichment(currentPrompt.contextKey, answer);
+        // 🧠 Unified learning (local only, non-blocking)
+        try {
+          await unifiedLearningService.learnFromEnrichment(currentPrompt.contextKey, answer);
+        } catch (error) {
+          console.warn('Enrichment learning failed (non-critical):', error);
+        }
       }
       if (currentPrompt.alwaysAsk && parsedTask) {
         const regex = new RegExp(`\\b${currentPrompt.contextKey}\\b`, 'gi');
@@ -177,8 +183,40 @@ export default function QuickAddScreen() {
         detectedIntent: taskData.intent,
       });
 
+      // 🔄 Queue for backend sync (non-blocking, works offline)
       await syncService.addToSyncQueue('task', newTask.id, 'create', newTask._raw);
-      await smartTaskService.learnFromTask(newTask._raw as any);
+
+      // 🧠 Unified AI learning (local only, never blocks)
+      try {
+        await unifiedLearningService.learnFromTaskCreation(
+          {
+            id: newTask.id,
+            userId: user!.id,
+            title: taskData.title,
+            completed: false,
+            priority: taskData.priority || 'medium',
+            category: taskData.category,
+            startDate: taskData.date,
+            duration: taskData.duration,
+            recurringPattern: taskData.recurringPattern,
+            location: taskData.location,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            hasSpecificTime: taskData.hasSpecificTime,
+            timeOfDay: taskData.timeOfDay,
+            suggestedTimeSlot: taskData.suggestedTimeSlot,
+            deadline: taskData.deadline,
+            originalInput: input,
+            parsingConfidence: taskData.confidence,
+            detectedIntent: taskData.intent,
+          },
+          input,
+          parsedTask
+        );
+      } catch (learningError) {
+        // Learning failed, but task creation succeeded
+        console.warn('AI learning failed (non-critical):', learningError);
+      }
 
       if (taskData.date) {
         await notificationService.scheduleTaskNotification({
