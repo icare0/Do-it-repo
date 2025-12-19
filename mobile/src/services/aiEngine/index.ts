@@ -15,6 +15,9 @@ import {
   AccuracyMetrics
 } from './types';
 
+// Set to true for verbose debugging, false for production performance
+const DEBUG_MODE = false;
+
 export class AIEngine {
   private isInitialized = false;
   private initializationPromise: Promise<void> | null = null;
@@ -67,23 +70,25 @@ export class AIEngine {
       await this.initialize();
     }
 
-    console.log(`\n🧠 AI Engine parsing: "${input}"`);
-    console.log('─'.repeat(50));
+    if (DEBUG_MODE) {
+      console.log(`\n🧠 AI Engine parsing: "${input}"`);
+      console.log('─'.repeat(50));
+    }
 
     try {
       // Step 1: Pattern-based parsing (fast, rule-based)
-      console.log('1️⃣ Pattern Engine parsing...');
+      if (DEBUG_MODE) console.log('1️⃣ Pattern Engine parsing...');
       let result = patternEngine.parse(input, userContext);
-      console.log(`   ✓ Temporal: ${result.date ? '✓' : '✗'} | Intent: ${result.intent || '✗'}`);
+      if (DEBUG_MODE) console.log(`   ✓ Temporal: ${result.date ? '✓' : '✗'} | Intent: ${result.intent || '✗'}`);
 
       // Step 2: Intent classification with ML (if intent not found by patterns)
       if (!result.intent || result.confidence < 0.7) {
-        console.log('2️⃣ Intent Classifier analyzing...');
+        if (DEBUG_MODE) console.log('2️⃣ Intent Classifier analyzing...');
         const intentPrediction = await intentClassifier.predict(input);
-        console.log(`   ✓ Predicted: ${intentPrediction.intent} (${(intentPrediction.confidence * 100).toFixed(1)}%)`);
+        if (DEBUG_MODE) console.log(`   ✓ Predicted: ${intentPrediction.intent} (${(intentPrediction.confidence * 100).toFixed(1)}%)`);
 
-        // Merge ML predictions with pattern results
-        if (intentPrediction.confidence > 0.6) {
+        // Merge ML predictions with pattern results (lowered threshold for better UX)
+        if (intentPrediction.confidence > 0.4) {
           result.intent = intentPrediction.intent;
 
           if (!result.category) {
@@ -103,34 +108,36 @@ export class AIEngine {
           }
         }
       } else {
-        console.log('2️⃣ Intent already found by patterns ✓');
+        if (DEBUG_MODE) console.log('2️⃣ Intent already found by patterns ✓');
       }
 
       // Step 3: Apply learned patterns from user corrections
-      console.log('3️⃣ Applying learned patterns...');
+      if (DEBUG_MODE) console.log('3️⃣ Applying learned patterns...');
       const patternsBefore = result.confidence;
       result = learningSystem.applyLearnedPatterns(input, result);
-      if (result.confidence > patternsBefore) {
+      if (DEBUG_MODE && result.confidence > patternsBefore) {
         console.log(`   ✓ Confidence boosted: ${(patternsBefore * 100).toFixed(1)}% → ${(result.confidence * 100).toFixed(1)}%`);
-      } else {
+      } else if (DEBUG_MODE) {
         console.log('   ✓ No applicable patterns');
       }
 
       // Step 4: Enrich with context
       if (userContext) {
-        console.log('4️⃣ Enriching with user context...');
+        if (DEBUG_MODE) console.log('4️⃣ Enriching with user context...');
         result = this.enrichWithContext(result, userContext);
       }
 
-      console.log('─'.repeat(50));
-      console.log(`✅ Final result:`);
-      console.log(`   Title: "${result.title}"`);
-      console.log(`   Date: ${result.date ? result.date.toLocaleDateString('fr-FR') : 'None'}`);
-      console.log(`   Time flexibility: ${result.hasSpecificTime ? 'Strict' : 'Flexible'}`);
-      console.log(`   Intent: ${result.intent || 'None'}`);
-      console.log(`   Category: ${result.category || 'None'}`);
-      console.log(`   Confidence: ${(result.confidence * 100).toFixed(1)}%`);
-      console.log('');
+      if (DEBUG_MODE) {
+        console.log('─'.repeat(50));
+        console.log(`✅ Final result:`);
+        console.log(`   Title: "${result.title}"`);
+        console.log(`   Date: ${result.date ? result.date.toLocaleDateString('fr-FR') : 'None'}`);
+        console.log(`   Time flexibility: ${result.hasSpecificTime ? 'Strict' : 'Flexible'}`);
+        console.log(`   Intent: ${result.intent || 'None'}`);
+        console.log(`   Category: ${result.category || 'None'}`);
+        console.log(`   Confidence: ${(result.confidence * 100).toFixed(1)}%`);
+        console.log('');
+      }
 
       return result;
 
@@ -155,7 +162,7 @@ export class AIEngine {
     // If no date but we have user habits, suggest based on patterns
     if (!result.date && context.userHabits?.preferredDays && result.category) {
       const preferredDay = context.userHabits.preferredDays[0];
-      if (preferredDay !== undefined) {
+      if (preferredDay !== undefined && DEBUG_MODE) {
         console.log(`   ✓ Suggesting day based on habits: ${preferredDay}`);
       }
     }
@@ -168,7 +175,7 @@ export class AIEngine {
           start: Math.min(...hours),
           end: Math.max(...hours)
         };
-        console.log(`   ✓ Suggested time slot: ${result.suggestedTimeSlot.start}h-${result.suggestedTimeSlot.end}h`);
+        if (DEBUG_MODE) console.log(`   ✓ Suggested time slot: ${result.suggestedTimeSlot.start}h-${result.suggestedTimeSlot.end}h`);
       }
     }
 
@@ -178,7 +185,7 @@ export class AIEngine {
         .filter(loc => loc.frequency > 3)
         .sort((a, b) => b.frequency - a.frequency)[0];
 
-      if (locationForCategory) {
+      if (locationForCategory && DEBUG_MODE) {
         console.log(`   ✓ Suggested location: ${locationForCategory.name}`);
       }
     }

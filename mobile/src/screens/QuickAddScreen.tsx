@@ -60,10 +60,15 @@ export default function QuickAddScreen() {
     });
   }, []);
 
-  // 🆕 Parse with AI Engine
+  // 🆕 Parse with AI Engine (debounced for performance)
   useEffect(() => {
     if (input.length > 2 && aiInitialized) {
-      parseWithAI();
+      // Debounce: wait 600ms after user stops typing
+      const timeoutId = setTimeout(() => {
+        parseWithAI();
+      }, 600);
+
+      return () => clearTimeout(timeoutId);
     } else {
       setParsedTask(null);
     }
