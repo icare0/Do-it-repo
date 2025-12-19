@@ -4,6 +4,7 @@
  */
 
 import * as tf from '@tensorflow/tfjs';
+import '@tensorflow/tfjs-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { TRAINING_DATA, INTENT_LABELS, CATEGORY_MAPPING } from './trainingData';
 import { vocabularyBuilder } from './vocabularyBuilder';
@@ -29,6 +30,10 @@ export class IntentClassifier {
     console.log('🧠 Initializing Intent Classifier...');
 
     try {
+      // Initialize TensorFlow.js for React Native
+      await tf.ready();
+      console.log('✓ TensorFlow.js backend ready');
+
       // Load vocabulary
       await this.loadVocabulary();
 
