@@ -149,7 +149,8 @@ export default function QuickAddScreen() {
           task.priority = taskData.priority || 'medium';
           task.completed = false;
           task.category = taskData.category;
-          if (taskData.date) task.startDate = taskData.date;
+          // Default to today if no date was parsed
+          task.startDate = taskData.date || new Date();
           if (taskData.duration) task.duration = taskData.duration;
           if (taskData.recurringPattern) task.recurringPattern = taskData.recurringPattern;
           if (taskData.location) task.location = taskData.location;
@@ -172,7 +173,7 @@ export default function QuickAddScreen() {
         completed: false,
         priority: taskData.priority || 'medium',
         category: taskData.category,
-        startDate: taskData.date,
+        startDate: taskData.date || new Date(),
         duration: taskData.duration,
         recurringPattern: taskData.recurringPattern,
         location: taskData.location,
@@ -201,7 +202,7 @@ export default function QuickAddScreen() {
             completed: false,
             priority: taskData.priority || 'medium',
             category: taskData.category,
-            startDate: taskData.date,
+            startDate: taskData.date || new Date(),
             duration: taskData.duration,
             recurringPattern: taskData.recurringPattern,
             location: taskData.location,
