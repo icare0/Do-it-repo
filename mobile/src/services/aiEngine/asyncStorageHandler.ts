@@ -5,6 +5,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { io } from '@tensorflow/tfjs';
+import { Buffer } from 'buffer';
 
 const MODEL_WEIGHTS_KEY = '@ai_model_weights';
 const MODEL_TOPOLOGY_KEY = '@ai_model_topology';
@@ -28,10 +29,10 @@ export class AsyncStorageHandler implements io.IOHandler {
         JSON.stringify(topology)
       );
 
-      // Save weights (convert ArrayBuffer to base64)
+      // Save weights (convert ArrayBuffer to base64 using Buffer polyfill)
       if (modelArtifacts.weightData) {
         const weightData = modelArtifacts.weightData;
-        const base64Weights = this.arrayBufferToBase64(weightData);
+        const base64Weights = Buffer.from(weightData).toString('base64');
 
         await AsyncStorage.setItem(
           `${MODEL_WEIGHTS_KEY}_${this.modelName}`,
@@ -76,7 +77,7 @@ export class AsyncStorageHandler implements io.IOHandler {
         throw new Error(`Model weights for "${this.modelName}" not found`);
       }
 
-      const weightData = this.base64ToArrayBuffer(base64Weights);
+      const weightData = Buffer.from(base64Weights, 'base64').buffer;
 
       console.log(`✅ Model "${this.modelName}" loaded successfully`);
 
@@ -92,26 +93,6 @@ export class AsyncStorageHandler implements io.IOHandler {
       console.error('Error loading model:', error);
       throw error;
     }
-  }
-
-  // Helper: ArrayBuffer to Base64
-  private arrayBufferToBase64(buffer: ArrayBuffer): string {
-    const bytes = new Uint8Array(buffer);
-    let binary = '';
-    for (let i = 0; i < bytes.byteLength; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-    return btoa(binary);
-  }
-
-  // Helper: Base64 to ArrayBuffer
-  private base64ToArrayBuffer(base64: string): ArrayBuffer {
-    const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) {
-      bytes[i] = binary.charCodeAt(i);
-    }
-    return bytes.buffer;
   }
 }
 
