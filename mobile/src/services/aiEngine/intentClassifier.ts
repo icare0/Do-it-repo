@@ -9,6 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { TRAINING_DATA, INTENT_LABELS, CATEGORY_MAPPING } from './trainingData';
 import { vocabularyBuilder } from './vocabularyBuilder';
 import { IntentPrediction, TrainingExample } from './types';
+import { asyncStorageIO } from './asyncStorageHandler';
 
 const MODEL_STORAGE_KEY = '@ai_intent_model';
 const MODEL_METADATA_KEY = '@ai_intent_metadata';
@@ -143,15 +144,16 @@ export class IntentClassifier {
       console.log('🏋️ Training model...');
       console.log(`Training samples: ${TRAINING_DATA.length}`);
 
-      // Train model
+      // Train model (reduced epochs for faster initialization)
       const history = await this.model.fit(inputs, labels, {
-        epochs: 50,
+        epochs: 30,  // Reduced from 50 for faster startup
         batchSize: 16,
         validationSplit: 0.2,
         shuffle: true,
+        verbose: 0,  // Disable per-batch logging for performance
         callbacks: {
           onEpochEnd: (epoch, logs) => {
-            if (epoch % 10 === 0) {
+            if (epoch % 10 === 0 || epoch === 29) {
               console.log(`Epoch ${epoch}: loss = ${logs?.loss.toFixed(4)}, accuracy = ${logs?.acc.toFixed(4)}`);
             }
           }
@@ -341,9 +343,10 @@ export class IntentClassifier {
     if (!this.model) return;
 
     try {
-      // TensorFlow.js doesn't support AsyncStorage directly on React Native
-      // We'll need to use a custom handler or IndexedDB wrapper
-      // For now, we'll save metadata only
+      // Save model using custom AsyncStorage handler
+      await this.model.save(asyncStorageIO('intent_classifier'));
+
+      // Save metadata
       const metadata = {
         savedAt: new Date().toISOString(),
         intentLabels: this.intentLabels,
@@ -351,10 +354,7 @@ export class IntentClassifier {
       };
 
       await AsyncStorage.setItem(MODEL_METADATA_KEY, JSON.stringify(metadata));
-      console.log('💾 Model metadata saved');
-
-      // TODO: Implement model weights saving for React Native
-      // This would require a custom storage handler
+      console.log('💾 Model and weights saved successfully');
     } catch (error) {
       console.error('Error saving model:', error);
     }
@@ -367,14 +367,17 @@ export class IntentClassifier {
     try {
       const metadata = await AsyncStorage.getItem(MODEL_METADATA_KEY);
       if (!metadata) {
+        console.log('📚 No model metadata found');
         return false;
       }
 
-      // TODO: Load model weights from storage
-      // For now, return false to trigger training
-      return false;
+      // Load model using custom AsyncStorage handler
+      this.model = await tf.loadLayersModel(asyncStorageIO('intent_classifier'));
+
+      console.log('✅ Model loaded from storage');
+      return true;
     } catch (error) {
-      console.error('Error loading model:', error);
+      console.log('📚 Could not load model from storage:', error.message);
       return false;
     }
   }
