@@ -92,7 +92,7 @@ export class AdvancedPatternEngine {
     },
 
     {
-      pattern: /demain\s+(?:après-midi|aprèm|aprem)/i,
+      pattern: /demain\s+(?:après-midi|après[-\s]midi|aprèm|aprem)/i,
       extract: (match) => ({
         date: addDays(new Date(), 1),
         hasSpecificTime: false,
@@ -102,7 +102,7 @@ export class AdvancedPatternEngine {
         confidence: 0.95
       }),
       description: "Demain après-midi",
-      examples: ["demain après-midi", "demain aprèm"]
+      examples: ["demain après-midi", "demain aprèm", "demain aprem"]
     },
 
     {
@@ -226,7 +226,7 @@ export class AdvancedPatternEngine {
     },
 
     {
-      pattern: /\b(?:ce|cette|cet)\s+(?:après-midi|aprèm)/i,
+      pattern: /\b(?:ce|cette|cet)\s+(?:après-midi|après[-\s]midi|aprèm|aprem)/i,
       extract: (match) => {
         const date = new Date();
         date.setHours(0, 0, 0, 0);
@@ -240,7 +240,7 @@ export class AdvancedPatternEngine {
         };
       },
       description: "Cet après-midi",
-      examples: ["cet après-midi", "cette aprèm"]
+      examples: ["cet après-midi", "cette aprèm", "cette aprem"]
     },
 
     {
