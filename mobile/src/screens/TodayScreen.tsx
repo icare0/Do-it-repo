@@ -72,7 +72,15 @@ export default function TodayScreen() {
       return a.startDate.getTime() - b.startDate.getTime();
     });
 
-  const nextTask = todayTasks.length > 0 ? todayTasks[0] : null;
+  // Tâches sans date (à planifier)
+  const unscheduledTasks = tasks
+    .filter((task) => !task.completed && !task.startDate)
+    .sort((a, b) => {
+      const priorityOrder = { high: 0, medium: 1, low: 2 };
+      return priorityOrder[a.priority || 'medium'] - priorityOrder[b.priority || 'medium'];
+    });
+
+  const nextTask = todayTasks.length > 0 ? todayTasks[0] : (unscheduledTasks.length > 0 ? unscheduledTasks[0] : null);
   const otherTasks = todayTasks.length > 0 ? todayTasks.slice(1) : [];
 
   const completedToday = tasks.filter(
@@ -365,6 +373,67 @@ export default function TodayScreen() {
                 </TouchableOpacity>
               ))}
             </ScrollView>
+          </View>
+        )}
+
+        {/* Unscheduled Tasks Section */}
+        {unscheduledTasks.length > 0 && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}>
+              À PLANIFIER
+            </Text>
+            <View style={styles.taskList}>
+              {unscheduledTasks.map((task) => (
+                <SwipeableRow
+                  key={task.id}
+                  leftAction={{
+                    icon: 'calendar-outline',
+                    color: '#fff',
+                    gradient: ['#F59E0B', '#FCD34D'],
+                    onPress: () => {
+                      const tomorrow = new Date();
+                      tomorrow.setDate(tomorrow.getDate() + 1);
+                      tomorrow.setHours(9, 0, 0, 0);
+                      updateTask(task.id, { startDate: tomorrow });
+                    },
+                    label: 'Demain',
+                  }}
+                  rightAction={{
+                    icon: 'trash-outline',
+                    color: '#fff',
+                    gradient: ['#EF4444', '#F87171'],
+                    onPress: () => handleDeleteTask(task.id),
+                    label: 'Supprimer',
+                  }}
+                >
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={() => handleTaskPress(task)}
+                    style={[
+                      styles.taskItem,
+                      {
+                        backgroundColor: theme.colors.surface,
+                        borderColor: theme.colors.border,
+                      }
+                    ]}
+                  >
+                    <Checkbox
+                      checked={task.completed}
+                      onPress={() => handleToggleTask(task.id)}
+                      size={22}
+                    />
+                    <View style={styles.taskItemContent}>
+                      <Text style={[styles.taskItemTitle, { color: theme.colors.text }]} numberOfLines={1}>
+                        {task.title}
+                      </Text>
+                      <Text style={[styles.taskItemTime, { color: theme.colors.textSecondary }]}>
+                        Sans date • {task.category || 'Général'}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                </SwipeableRow>
+              ))}
+            </View>
           </View>
         )}
 
