@@ -85,6 +85,17 @@ class NLPService {
       if (!parsed.date) {
         parsed.date = new Date();
       }
+
+      // Vérifier si l'heure est déjà passée aujourd'hui
+      const now = new Date();
+      const proposedTime = new Date();
+      proposedTime.setHours(hour, 0, 0, 0);
+
+      // Si l'heure proposée est dans le passé, avancer au lendemain
+      if (proposedTime <= now) {
+        parsed.date.setDate(parsed.date.getDate() + 1);
+      }
+
       parsed.date.setHours(hour, 0, 0, 0);
       parsed.time = `${hour.toString().padStart(2, '0')}:00`;
       cleanedInput = cleanedInput.replace(timeOfDayMatch[0], '').trim();
@@ -100,6 +111,14 @@ class NLPService {
       const date = parsed.date || new Date();
       date.setDate(date.getDate() + daysToAdd);
       parsed.date = date;
+
+      // Si aucune heure n'est définie et c'est demain/après-demain, mettre 9h par défaut
+      if (!parsed.time && daysToAdd > 0) {
+        const defaultHour = 9;
+        parsed.date.setHours(defaultHour, 0, 0, 0);
+        parsed.time = `${defaultHour.toString().padStart(2, '0')}:00`;
+      }
+
       cleanedInput = cleanedInput.replace(relativeDateMatch[0], '').trim();
     }
 
@@ -143,22 +162,59 @@ class NLPService {
       cleanedInput = cleanedInput.replace(absoluteDateMatch[0], '').trim();
     }
 
-    // Parse time (14h30, 14:30, 14h, à 14h30, a 14h30)
-    // Updated regex to catch 'a' (unaccented) as a preposition, and ensure it's a whole word match for the preposition
-    const timePattern = /(?:\b(?:à|a|vers|pour)\s+)?(\d{1,2})[h:](\d{2})?/i;
-    const timeMatch = input.match(timePattern);
-    if (timeMatch) {
-      const hour = parseInt(timeMatch[1]);
-      const minute = timeMatch[2] ? parseInt(timeMatch[2]) : 0;
-      parsed.time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+    // Parse time ranges first (entre 14h et 16h, de 9h à 11h)
+    const timeRangePattern = /(?:entre|de)\s+(\d{1,2})[h:]?(?:(\d{2}))?\s+(?:et|à|a)\s+(\d{1,2})[h:]?(?:(\d{2}))?/i;
+    const timeRangeMatch = input.match(timeRangePattern);
+    if (timeRangeMatch) {
+      const startHour = parseInt(timeRangeMatch[1]);
+      const startMinute = timeRangeMatch[2] ? parseInt(timeRangeMatch[2]) : 0;
+      const endHour = parseInt(timeRangeMatch[3]);
+      const endMinute = timeRangeMatch[4] ? parseInt(timeRangeMatch[4]) : 0;
 
-      // Update the date object with the extracted time
+      // Définir l'heure de début
+      parsed.time = `${startHour.toString().padStart(2, '0')}:${startMinute.toString().padStart(2, '0')}`;
+
       if (!parsed.date) {
         parsed.date = new Date();
       }
-      parsed.date.setHours(hour, minute, 0, 0);
+      parsed.date.setHours(startHour, startMinute, 0, 0);
 
-      cleanedInput = cleanedInput.replace(timeMatch[0], '').trim();
+      // Calculer la durée en minutes
+      const durationMinutes = (endHour * 60 + endMinute) - (startHour * 60 + startMinute);
+      if (durationMinutes > 0) {
+        parsed.duration = durationMinutes;
+      }
+
+      cleanedInput = cleanedInput.replace(timeRangeMatch[0], '').trim();
+    }
+    // Parse single time (14h30, 14:30, 14h, à 14h30, a 14h30) - only if no range was found
+    else {
+      const timePattern = /(?:\b(?:à|a|vers|pour)\s+)?(\d{1,2})[h:](\d{2})?/i;
+      const timeMatch = input.match(timePattern);
+      if (timeMatch) {
+        const hour = parseInt(timeMatch[1]);
+        const minute = timeMatch[2] ? parseInt(timeMatch[2]) : 0;
+        parsed.time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+
+        // Update the date object with the extracted time
+        if (!parsed.date) {
+          parsed.date = new Date();
+        }
+
+        // Vérifier si l'heure est dans le passé aujourd'hui (seulement si la date n'a pas été explicitement définie)
+        const now = new Date();
+        const proposedTime = new Date(parsed.date);
+        proposedTime.setHours(hour, minute, 0, 0);
+
+        // Si c'est aujourd'hui et l'heure est passée, avancer au lendemain
+        if (parsed.date.toDateString() === now.toDateString() && proposedTime <= now) {
+          parsed.date.setDate(parsed.date.getDate() + 1);
+        }
+
+        parsed.date.setHours(hour, minute, 0, 0);
+
+        cleanedInput = cleanedInput.replace(timeMatch[0], '').trim();
+      }
     }
 
     // Detect category
