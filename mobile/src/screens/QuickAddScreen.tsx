@@ -25,6 +25,8 @@ import { useTaskStore } from '@/store/taskStore';
 import { useAuthStore } from '@/store/authStore';
 import { getTheme, spacing, borderRadius } from '@/theme';
 import { nlpService } from '@/services/nlpService';
+import { nlpServiceAdvanced } from '@/services/nlpServiceAdvanced';
+import { predictiveSuggestionsService } from '@/services/predictiveSuggestionsService';
 import { smartTaskService } from '@/services/smartTaskService';
 import { notificationService } from '@/services/notificationService';
 import { database, TaskModel } from '@/database';
@@ -48,7 +50,8 @@ export default function QuickAddScreen() {
 
   useEffect(() => {
     if (input.length > 2) {
-      const parsed = nlpService.parseQuickAdd(input);
+      // Utiliser le service NLP avancé
+      const parsed = nlpServiceAdvanced.parseAdvanced(input);
       const { enrichedTitle: autoEnriched, wasEnriched } = smartTaskService.enrichTaskTitle(input);
 
       if (wasEnriched) {
@@ -96,6 +99,37 @@ export default function QuickAddScreen() {
     try {
       setLoading(true);
       const taskData = parsedTask || { title: input };
+
+      // Vérifier les duplicatas
+      const { tasks } = useTaskStore.getState();
+      const todayTasks = tasks.filter(t => !t.completed);
+      const duplicates = nlpServiceAdvanced.detectDuplicates(
+        taskData.title,
+        todayTasks.map(t => t.title)
+      );
+
+      if (duplicates.length > 0) {
+        Alert.alert(
+          'Tâche similaire détectée',
+          `Une tâche similaire existe déjà: "${duplicates[0]}". Voulez-vous quand même créer cette tâche ?`,
+          [
+            { text: 'Annuler', style: 'cancel', onPress: () => setLoading(false) },
+            { text: 'Créer quand même', onPress: () => proceedWithTaskCreation(taskData) }
+          ]
+        );
+        return;
+      }
+
+      await proceedWithTaskCreation(taskData);
+    } catch (error) {
+      console.error('Create task error:', error);
+      Alert.alert('Erreur', 'Impossible de créer la tâche');
+      setLoading(false);
+    }
+  }
+
+  async function proceedWithTaskCreation(taskData: any) {
+    try {
       const { enrichedTitle: finalTitle, location: enrichedLocation } =
         smartTaskService.enrichTaskTitle(taskData.title);
 
@@ -108,6 +142,7 @@ export default function QuickAddScreen() {
         return await database.get<TaskModel>('tasks').create((task) => {
           task.userId = user!.id;
           task.title = taskData.title;
+          task.description = taskData.description || undefined;
           task.priority = taskData.priority || 'medium';
           task.completed = false;
           task.category = taskData.category;
@@ -115,6 +150,7 @@ export default function QuickAddScreen() {
           if (taskData.duration) task.duration = taskData.duration;
           if (taskData.recurringPattern) task.recurringPattern = taskData.recurringPattern;
           if (taskData.location) task.location = taskData.location;
+          if (taskData.tags) task.tags = taskData.tags;
         });
       });
 
@@ -122,6 +158,7 @@ export default function QuickAddScreen() {
         id: newTask.id,
         userId: user!.id,
         title: taskData.title,
+        description: taskData.description,
         completed: false,
         priority: taskData.priority || 'medium',
         category: taskData.category,
@@ -129,6 +166,7 @@ export default function QuickAddScreen() {
         duration: taskData.duration,
         recurringPattern: taskData.recurringPattern,
         location: taskData.location,
+        tags: taskData.tags,
         createdAt: new Date(),
         updatedAt: new Date(),
       });
@@ -196,6 +234,20 @@ export default function QuickAddScreen() {
                     </Text>
                   </View>
                 )}
+                {parsedTask.duration && (
+                  <View style={[styles.detectedChip, { backgroundColor: theme.colors.info + '15' }]}>
+                    <Ionicons name="time" size={14} color={theme.colors.info || theme.colors.primary} />
+                    <Text style={[styles.detectedText, { color: theme.colors.info || theme.colors.primary }]}>
+                      {parsedTask.duration}min
+                    </Text>
+                  </View>
+                )}
+                {parsedTask.needsFocus && (
+                  <View style={[styles.detectedChip, { backgroundColor: '#9333EA15' }]}>
+                    <Ionicons name="flash" size={14} color="#9333EA" />
+                    <Text style={[styles.detectedText, { color: '#9333EA' }]}>Focus requis</Text>
+                  </View>
+                )}
                 {parsedTask.priority === 'high' && (
                   <View style={[styles.detectedChip, { backgroundColor: theme.colors.error + '15' }]}>
                     <Ionicons name="flag" size={14} color={theme.colors.error} />
@@ -206,6 +258,12 @@ export default function QuickAddScreen() {
                   <View style={[styles.detectedChip, { backgroundColor: theme.colors.secondary + '15' }]}>
                     <Ionicons name="folder" size={14} color={theme.colors.secondary} />
                     <Text style={[styles.detectedText, { color: theme.colors.secondary }]}>{parsedTask.category}</Text>
+                  </View>
+                )}
+                {parsedTask.description && (
+                  <View style={[styles.detectedChip, { backgroundColor: theme.colors.success + '15' }]}>
+                    <Ionicons name="document-text" size={14} color={theme.colors.success} />
+                    <Text style={[styles.detectedText, { color: theme.colors.success }]}>Infos enrichies</Text>
                   </View>
                 )}
               </View>

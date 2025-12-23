@@ -91,13 +91,16 @@ class NLPService {
       const proposedTime = new Date();
       proposedTime.setHours(hour, 0, 0, 0);
 
-      // Si l'heure proposée est dans le passé, avancer au lendemain
+      // Si l'heure proposée est dans le passé, ajouter 1h à l'heure actuelle au lieu du lendemain
       if (proposedTime <= now) {
-        parsed.date.setDate(parsed.date.getDate() + 1);
+        const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
+        parsed.date.setHours(oneHourLater.getHours(), 0, 0, 0);
+        parsed.time = `${oneHourLater.getHours().toString().padStart(2, '0')}:00`;
+      } else {
+        parsed.date.setHours(hour, 0, 0, 0);
+        parsed.time = `${hour.toString().padStart(2, '0')}:00`;
       }
 
-      parsed.date.setHours(hour, 0, 0, 0);
-      parsed.time = `${hour.toString().padStart(2, '0')}:00`;
       cleanedInput = cleanedInput.replace(timeOfDayMatch[0], '').trim();
     }
 
