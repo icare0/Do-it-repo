@@ -517,8 +517,8 @@ class SyncService {
             title: task.title || '',
             description: task.description,
             completed: Boolean(task.completed),
-            startDate: task.startDate,
-            endDate: task.endDate,
+            startDate: task.startDate ? new Date(task.startDate) : undefined,
+            endDate: task.endDate ? new Date(task.endDate) : undefined,
             duration: task.duration,
             category: task.category,
             tags: task.tags || [],
@@ -527,9 +527,9 @@ class SyncService {
             reminder: task.reminder,
             recurringPattern: task.recurringPattern,
             calendarEventId: task.calendarEventId,
-            createdAt: task.createdAt,
-            updatedAt: task.updatedAt,
-            syncedAt: task.syncedAt,
+            createdAt: new Date(task.createdAt),
+            updatedAt: new Date(task.updatedAt),
+            syncedAt: task.syncedAt ? new Date(task.syncedAt) : undefined,
           };
 
           mappedTasks.push(mappedTask);
