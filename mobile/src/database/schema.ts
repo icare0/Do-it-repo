@@ -1,7 +1,7 @@
 import { appSchema, tableSchema } from '@nozbe/watermelondb';
 
 export const schema = appSchema({
-  version: 2, // 🆕 Incremented for AI Engine fields
+  version: 1,
   tables: [
     tableSchema({
       name: 'tasks',
@@ -23,14 +23,6 @@ export const schema = appSchema({
         { name: 'synced_at', type: 'number', isOptional: true },
         { name: 'created_at', type: 'number' },
         { name: 'updated_at', type: 'number' },
-        // 🆕 AI Engine fields
-        { name: 'has_specific_time', type: 'boolean', isOptional: true },
-        { name: 'time_of_day', type: 'string', isOptional: true },
-        { name: 'suggested_time_slot', type: 'string', isOptional: true }, // JSON object {start, end}
-        { name: 'deadline', type: 'number', isOptional: true },
-        { name: 'original_input', type: 'string', isOptional: true },
-        { name: 'parsing_confidence', type: 'number', isOptional: true },
-        { name: 'detected_intent', type: 'string', isOptional: true },
       ],
     }),
     tableSchema({

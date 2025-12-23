@@ -22,20 +22,6 @@ class SmartTaskOrchestrator {
   private isInitialized = false;
   private currentLocation: { latitude: number; longitude: number } | null = null;
 
-  // Cache for optimization context (avoid redundant API calls)
-  private contextCache: {
-    context: OptimizationContext | null;
-    timestamp: number;
-    location: { latitude: number; longitude: number } | null;
-  } = {
-    context: null,
-    timestamp: 0,
-    location: null,
-  };
-
-  private readonly CACHE_DURATION_MS = 15 * 60 * 1000; // 15 minutes
-  private readonly LOCATION_THRESHOLD_METERS = 500; // 500m
-
   /**
    * Initialise l'orchestrateur
    */
@@ -261,74 +247,29 @@ class SmartTaskOrchestrator {
   }
 
   /**
-   * Construit le contexte d'optimisation (avec cache et parallélisation)
+   * Construit le contexte d'optimisation
    */
   private async buildOptimizationContext(
     tasks: Task[]
   ): Promise<OptimizationContext | null> {
     try {
-      // Check cache validity
-      const now = Date.now();
-      const cacheAge = now - this.contextCache.timestamp;
-
-      if (
-        this.contextCache.context &&
-        cacheAge < this.CACHE_DURATION_MS &&
-        this.contextCache.location
-      ) {
-        // Check if we haven't moved too far
-        const currentLoc = this.currentLocation;
-        const cachedLoc = this.contextCache.location;
-
-        if (currentLoc && cachedLoc) {
-          const distance = this.calculateDistance(
-            currentLoc.latitude,
-            currentLoc.longitude,
-            cachedLoc.latitude,
-            cachedLoc.longitude
-          );
-
-          if (distance < this.LOCATION_THRESHOLD_METERS) {
-            console.log('[SmartTaskOrchestrator] Using cached context');
-            return this.contextCache.context;
-          }
+      // Localisation
+      let userLocation = this.currentLocation;
+      if (!userLocation) {
+        try {
+          const location = await Location.getCurrentPositionAsync({});
+          userLocation = {
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+          };
+          this.currentLocation = userLocation;
+        } catch {
+          // Utiliser une position par défaut si échec
+          userLocation = { latitude: 0, longitude: 0 };
         }
       }
 
-      // OPTIMIZATION: Parallelize independent async calls
-      const [userLocation, weatherData] = await Promise.all([
-        // Get location
-        (async () => {
-          if (this.currentLocation) return this.currentLocation;
-
-          try {
-            const location = await Location.getCurrentPositionAsync({});
-            const loc = {
-              latitude: location.coords.latitude,
-              longitude: location.coords.longitude,
-            };
-            this.currentLocation = loc;
-            return loc;
-          } catch {
-            return { latitude: 0, longitude: 0 };
-          }
-        })(),
-
-        // Get weather (in parallel with location)
-        (async () => {
-          const loc = this.currentLocation || { latitude: 0, longitude: 0 };
-          try {
-            return await weatherService.getCurrentWeather(
-              loc.latitude,
-              loc.longitude
-            );
-          } catch {
-            return null;
-          }
-        })(),
-      ]);
-
-      // Process weather data
+      // Météo
       let weather = {
         temperature: 20,
         condition: 'clear' as const,
@@ -337,14 +278,22 @@ class SmartTaskOrchestrator {
         humidity: 50,
       };
 
-      if (weatherData) {
-        weather = {
-          temperature: weatherData.temperature,
-          condition: this.mapWeatherCondition(weatherData.weatherCode),
-          precipitation: weatherData.precipitation || 0,
-          windSpeed: weatherData.windSpeed || 0,
-          humidity: weatherData.humidity || 50,
-        };
+      try {
+        const weatherData = await weatherService.getCurrentWeather(
+          userLocation.latitude,
+          userLocation.longitude
+        );
+        if (weatherData) {
+          weather = {
+            temperature: weatherData.temperature,
+            condition: this.mapWeatherCondition(weatherData.weatherCode),
+            precipitation: weatherData.precipitation || 0,
+            windSpeed: weatherData.windSpeed || 0,
+            humidity: weatherData.humidity || 50,
+          };
+        }
+      } catch {
+        // Utiliser les valeurs par défaut
       }
 
       // Niveau d'énergie basé sur l'heure
@@ -374,7 +323,7 @@ class SmartTaskOrchestrator {
           dayOfWeek: new Date(t.updatedAt).getDay(),
         }));
 
-      const context: OptimizationContext = {
+      return {
         currentTime: new Date(),
         userLocation,
         weather,
@@ -383,43 +332,10 @@ class SmartTaskOrchestrator {
         taskHistory,
         tasks: tasks.filter((t) => !t.completed),
       };
-
-      // Cache the context
-      this.contextCache = {
-        context,
-        timestamp: now,
-        location: userLocation,
-      };
-
-      return context;
     } catch (error) {
       console.error('[SmartTaskOrchestrator] Context building error:', error);
       return null;
     }
-  }
-
-  /**
-   * Calculate distance between two coordinates (Haversine formula)
-   */
-  private calculateDistance(
-    lat1: number,
-    lon1: number,
-    lat2: number,
-    lon2: number
-  ): number {
-    const R = 6371e3; // Earth radius in meters
-    const φ1 = (lat1 * Math.PI) / 180;
-    const φ2 = (lat2 * Math.PI) / 180;
-    const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-    const Δλ = ((lon2 - lon1) * Math.PI) / 180;
-
-    const a =
-      Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-      Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-    return R * c; // Distance in meters
   }
 
   /**
@@ -446,44 +362,9 @@ class SmartTaskOrchestrator {
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
       };
-
-      // Invalidate cache if location changed significantly
-      if (this.contextCache.location) {
-        const distance = this.calculateDistance(
-          this.currentLocation.latitude,
-          this.currentLocation.longitude,
-          this.contextCache.location.latitude,
-          this.contextCache.location.longitude
-        );
-
-        if (distance > this.LOCATION_THRESHOLD_METERS) {
-          this.invalidateCache();
-        }
-      }
     } catch (error) {
       console.error('[SmartTaskOrchestrator] Location update error:', error);
     }
-  }
-
-  /**
-   * Invalide le cache du contexte d'optimisation
-   * (Utile quand l'utilisateur se déplace ou après un événement majeur)
-   */
-  invalidateCache(): void {
-    console.log('[SmartTaskOrchestrator] Cache invalidated');
-    this.contextCache = {
-      context: null,
-      timestamp: 0,
-      location: null,
-    };
-  }
-
-  /**
-   * Force le rafraîchissement du contexte (ignore le cache)
-   */
-  async refreshContext(tasks: Task[]): Promise<OptimizationContext | null> {
-    this.invalidateCache();
-    return this.buildOptimizationContext(tasks);
   }
 }
 

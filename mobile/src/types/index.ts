@@ -26,18 +26,6 @@ export interface Task {
   createdAt: Date;
   updatedAt: Date;
   syncedAt?: Date;
-
-  // 🆕 AI Engine enhancements
-  hasSpecificTime?: boolean; // true = "demain 14h", false = "demain" (flexible)
-  timeOfDay?: 'morning' | 'afternoon' | 'evening' | 'night'; // For flexible tasks
-  suggestedTimeSlot?: { // AI-suggested time slot based on habits
-    start: number; // 0-23
-    end: number;
-  };
-  deadline?: Date; // Different from startDate (e.g., "finish by Friday")
-  originalInput?: string; // Original user input for learning
-  parsingConfidence?: number; // AI confidence score (0-1)
-  detectedIntent?: string; // shopping, call, meeting, work, etc.
 }
 
 export interface Location {
@@ -108,5 +96,4 @@ export type RootStackParamList = {
   SmartAssistant: undefined;
   Stats: undefined;
   WidgetSetup: undefined;
-  AIAnalytics: undefined;
 };

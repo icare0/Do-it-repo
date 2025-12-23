@@ -24,13 +24,11 @@ import { useThemeStore } from '@/store/themeStore';
 import { useTaskStore } from '@/store/taskStore';
 import { useAuthStore } from '@/store/authStore';
 import { getTheme, spacing, borderRadius } from '@/theme';
-import { aiEngine } from '@/services/aiEngine'; // 🆕 AI Engine
+import { nlpService } from '@/services/nlpService';
 import { smartTaskService } from '@/services/smartTaskService';
-import { unifiedLearningService } from '@/services/unifiedLearningService'; // 🆕 Unified Learning
 import { notificationService } from '@/services/notificationService';
 import { database, TaskModel } from '@/database';
 import { syncService } from '@/services/syncService';
-import { ActivityIndicator } from 'react-native';
 
 export default function QuickAddScreen() {
   const navigation = useNavigation();
@@ -44,58 +42,27 @@ export default function QuickAddScreen() {
   const [input, setInput] = useState((route.params as any)?.prefillText || '');
   const [parsedTask, setParsedTask] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [parsing, setParsing] = useState(false); // 🆕 AI parsing state
   const [showSmartPrompt, setShowSmartPrompt] = useState(false);
   const [currentPrompt, setCurrentPrompt] = useState<any>(null);
-  const [aiInitialized, setAiInitialized] = useState(false); // 🆕 AI init state
+  const [enrichedTitle, setEnrichedTitle] = useState('');
 
-  // 🆕 Initialize AI Engine on mount
   useEffect(() => {
-    aiEngine.initialize().then(() => {
-      setAiInitialized(true);
-      console.log('✅ AI Engine ready');
-    }).catch(err => {
-      console.error('Failed to initialize AI:', err);
-      setAiInitialized(true); // Continue anyway with fallback
-    });
-  }, []);
+    if (input.length > 2) {
+      const parsed = nlpService.parseQuickAdd(input);
+      const { enrichedTitle: autoEnriched, wasEnriched } = smartTaskService.enrichTaskTitle(input);
 
-  // 🆕 Parse with AI Engine (debounced for performance)
-  useEffect(() => {
-    if (input.length > 2 && aiInitialized) {
-      // Debounce: wait 600ms after user stops typing
-      const timeoutId = setTimeout(() => {
-        parseWithAI();
-      }, 600);
-
-      return () => clearTimeout(timeoutId);
+      if (wasEnriched) {
+        parsed.title = smartTaskService.enrichTaskTitle(parsed.title).enrichedTitle;
+        setEnrichedTitle(autoEnriched);
+      } else {
+        setEnrichedTitle('');
+      }
+      setParsedTask(parsed);
     } else {
       setParsedTask(null);
+      setEnrichedTitle('');
     }
-  }, [input, aiInitialized]);
-
-  async function parseWithAI() {
-    setParsing(true);
-    try {
-      const result = await aiEngine.parseTask(input, {
-        userId: user?.id || '',
-        currentTime: new Date()
-      });
-      setParsedTask(result);
-    } catch (error) {
-      console.error('AI parsing error:', error);
-      // Fallback to basic parsing
-      setParsedTask({
-        title: input,
-        originalInput: input,
-        confidence: 0.3,
-        hasSpecificTime: false,
-        priority: 'medium'
-      });
-    } finally {
-      setParsing(false);
-    }
-  }
+  }, [input]);
 
   async function handleCreate() {
     if (!input.trim()) return;
@@ -113,12 +80,7 @@ export default function QuickAddScreen() {
   async function handleSmartPromptSubmit(answer: string) {
     if (currentPrompt) {
       if (!currentPrompt.alwaysAsk) {
-        // 🧠 Unified learning (local only, non-blocking)
-        try {
-          await unifiedLearningService.learnFromEnrichment(currentPrompt.contextKey, answer);
-        } catch (error) {
-          console.warn('Enrichment learning failed (non-critical):', error);
-        }
+        await smartTaskService.saveEnrichment(currentPrompt.contextKey, answer);
       }
       if (currentPrompt.alwaysAsk && parsedTask) {
         const regex = new RegExp(`\\b${currentPrompt.contextKey}\\b`, 'gi');
@@ -149,20 +111,10 @@ export default function QuickAddScreen() {
           task.priority = taskData.priority || 'medium';
           task.completed = false;
           task.category = taskData.category;
-          // Default to today if no date was parsed
-          task.startDate = taskData.date || new Date();
+          if (taskData.date) task.startDate = taskData.date;
           if (taskData.duration) task.duration = taskData.duration;
           if (taskData.recurringPattern) task.recurringPattern = taskData.recurringPattern;
           if (taskData.location) task.location = taskData.location;
-
-          // 🆕 AI Engine fields
-          if (taskData.hasSpecificTime !== undefined) task.hasSpecificTime = taskData.hasSpecificTime;
-          if (taskData.timeOfDay) task.timeOfDay = taskData.timeOfDay;
-          if (taskData.suggestedTimeSlot) task.suggestedTimeSlot = taskData.suggestedTimeSlot;
-          if (taskData.deadline) task.deadline = taskData.deadline;
-          task.originalInput = input;
-          if (taskData.confidence) task.parsingConfidence = taskData.confidence;
-          if (taskData.intent) task.detectedIntent = taskData.intent;
         });
       });
 
@@ -173,56 +125,16 @@ export default function QuickAddScreen() {
         completed: false,
         priority: taskData.priority || 'medium',
         category: taskData.category,
-        startDate: taskData.date || new Date(),
+        startDate: taskData.date,
         duration: taskData.duration,
         recurringPattern: taskData.recurringPattern,
         location: taskData.location,
         createdAt: new Date(),
         updatedAt: new Date(),
-        // 🆕 AI Engine fields
-        hasSpecificTime: taskData.hasSpecificTime,
-        timeOfDay: taskData.timeOfDay,
-        suggestedTimeSlot: taskData.suggestedTimeSlot,
-        deadline: taskData.deadline,
-        originalInput: input,
-        parsingConfidence: taskData.confidence,
-        detectedIntent: taskData.intent,
       });
 
-      // 🔄 Queue for backend sync (non-blocking, works offline)
       await syncService.addToSyncQueue('task', newTask.id, 'create', newTask._raw);
-
-      // 🧠 Unified AI learning (local only, never blocks)
-      try {
-        await unifiedLearningService.learnFromTaskCreation(
-          {
-            id: newTask.id,
-            userId: user!.id,
-            title: taskData.title,
-            completed: false,
-            priority: taskData.priority || 'medium',
-            category: taskData.category,
-            startDate: taskData.date || new Date(),
-            duration: taskData.duration,
-            recurringPattern: taskData.recurringPattern,
-            location: taskData.location,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            hasSpecificTime: taskData.hasSpecificTime,
-            timeOfDay: taskData.timeOfDay,
-            suggestedTimeSlot: taskData.suggestedTimeSlot,
-            deadline: taskData.deadline,
-            originalInput: input,
-            parsingConfidence: taskData.confidence,
-            detectedIntent: taskData.intent,
-          },
-          input,
-          parsedTask
-        );
-      } catch (learningError) {
-        // Learning failed, but task creation succeeded
-        console.warn('AI learning failed (non-critical):', learningError);
-      }
+      await smartTaskService.learnFromTask(newTask._raw as any);
 
       if (taskData.date) {
         await notificationService.scheduleTaskNotification({

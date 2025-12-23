@@ -59,14 +59,6 @@ export const getTasks = async (req: AuthRequest, res: Response): Promise<void> =
       reminder: task.reminder,
       recurringPattern: task.recurringPattern,
       calendarEventId: task.calendarEventId,
-      // 🆕 AI Engine fields
-      hasSpecificTime: task.hasSpecificTime,
-      timeOfDay: task.timeOfDay,
-      suggestedTimeSlot: task.suggestedTimeSlot,
-      deadline: task.deadline?.toISOString(),
-      originalInput: task.originalInput,
-      parsingConfidence: task.parsingConfidence,
-      detectedIntent: task.detectedIntent,
       createdAt: task.createdAt.toISOString(),
       updatedAt: task.updatedAt.toISOString(),
     }));
@@ -147,10 +139,6 @@ export const createTask = async (req: AuthRequest, res: Response): Promise<void>
     if (taskData.endDate && typeof taskData.endDate === 'string') {
       taskData.endDate = new Date(taskData.endDate);
     }
-    // 🆕 AI Engine date field
-    if (taskData.deadline && typeof taskData.deadline === 'string') {
-      taskData.deadline = new Date(taskData.deadline);
-    }
 
     const task = await Task.create(taskData);
 
@@ -192,10 +180,6 @@ export const updateTask = async (req: AuthRequest, res: Response): Promise<void>
     }
     if (updateData.endDate) {
       updateData.endDate = new Date(updateData.endDate);
-    }
-    // 🆕 AI Engine date field
-    if (updateData.deadline) {
-      updateData.deadline = new Date(updateData.deadline);
     }
 
     const task = await Task.findOneAndUpdate(
@@ -386,10 +370,6 @@ export const syncTasks = async (req: AuthRequest, res: Response): Promise<void> 
             if (taskData.endDate) {
               taskData.endDate = new Date(taskData.endDate);
             }
-            // 🆕 AI Engine date field
-            if (taskData.deadline) {
-              taskData.deadline = new Date(taskData.deadline);
-            }
 
             const task = await Task.create(taskData);
 
@@ -416,10 +396,6 @@ export const syncTasks = async (req: AuthRequest, res: Response): Promise<void> 
           }
           if (updateData.endDate) {
             updateData.endDate = new Date(updateData.endDate);
-          }
-          // 🆕 AI Engine date field
-          if (updateData.deadline) {
-            updateData.deadline = new Date(updateData.deadline);
           }
 
           const task = await Task.findOneAndUpdate(

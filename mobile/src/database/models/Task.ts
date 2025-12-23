@@ -22,13 +22,4 @@ export default class TaskModel extends Model {
   @date('synced_at') syncedAt?: Date;
   @readonly @date('created_at') createdAt!: Date;
   @readonly @date('updated_at') updatedAt!: Date;
-
-  // 🆕 AI Engine fields
-  @field('has_specific_time') hasSpecificTime?: boolean;
-  @field('time_of_day') timeOfDay?: 'morning' | 'afternoon' | 'evening' | 'night';
-  @json('suggested_time_slot', (json) => json) suggestedTimeSlot?: { start: number; end: number };
-  @date('deadline') deadline?: Date;
-  @field('original_input') originalInput?: string;
-  @field('parsing_confidence') parsingConfidence?: number;
-  @field('detected_intent') detectedIntent?: string;
 }
